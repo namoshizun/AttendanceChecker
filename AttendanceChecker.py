@@ -29,6 +29,7 @@ class Config:
 		self.__attach__(props)
 		return self
 
+
 class Util:
 	def __init__(self, config):
 		self.config = config
@@ -53,14 +54,17 @@ class Util:
 		with open(os.path.join(path, fname), 'w+', newline='', encoding='UTF-8') as outfile:
 			cout = csv.writer(outfile, delimiter=',')
 			cout.writerow(['考勤时间', '-'.join(list(map(lambda dte: str(dte), summ['period'])))])
-			cout.writerow(['出勤', summ['fullAttendances']])
-			cout.writerow(['早退', summ['earlyLeaves']])
-			cout.writerow(['迟到', summ['lates']])
-			cout.writerow(['中途长期退出', summ['dropouts']])
+			cout.writerow(['出勤', summ['stat']['present']])
+			cout.writerow(['早退', summ['stat']['earlyLeaves']])
+			cout.writerow(['迟到', summ['stat']['lates']])
+			cout.writerow(['缺勤', summ['stat']['absent']])
+			cout.writerow(['中途长期退出', summ['stat']['dropouts']])
 			cout.writerow(['YY昵称','出勤结果', '活动记录'])
 
+			cout.writerow(['未识别名单', ' | '.join(list(summ['unrecognised']))])
+			cout.writerow(['缺勤名单', ' | '.join(list(summ['absent']))])
+
 			cout.writerows(self.parser.parseSheetToCsvRows(sheet))
-			cout.writerow(['未识别', ' | '.join(list(sheet.summary['unrecognised']))])
 
 
 class RecordsParser:
@@ -84,23 +88,20 @@ class RecordsParser:
 		rows = []
 		def translateAttendance(dropout=False, earlyLeave=False, late=False):
 			ret = ''
-			if dropout: ret += '中途长期退出'
-			if earlyLeave: ret += '早退'
-			if late: ret += '迟到'
-			return ret + '全勤' if ret == '' else ret
+			if dropout: ret += '中途长期退出+'
+			if earlyLeave: ret += '早退+'
+			if late: ret += '迟到+'
+			return ret + '全勤+' if ret == '' else ret
 
 		for name, hist in sheet.mems.items():
-			fullRec = []
-			for i, dte in enumerate(chain.from_iterable(zip_longest(hist['enter'], hist['leave']))):
-				if dte:
-					fullRec.append(('进' if i%2==0 else '退')+str(dte))
+			fullRec = [('进' if i%2==0 else '退')+str(dte) for i, dte in enumerate(chain.from_iterable(zip_longest(hist['enter'], hist['leave']))) if dte]
 
 			rows.append([
 				# YY昵称
 				name,
 				# 出勤结果
 				translateAttendance(**hist['attendance']),
-				# 进出记录 -- 方便起见先这样写了,比较难看 o.o
+				# 进出记录
 				' '.join(fullRec)
 			])
 		return rows
@@ -115,10 +116,14 @@ class AttendancSheet:
 			}.get(config.unit)
 
 		self.summary = {
-			'fullAttendances': None,
-			'earlyLeaves': None,
-			'dropouts': None,
-			'lates': None,
+			'stat': {
+				'present': None,
+				'earlyLeaves': None,
+				'dropouts': None,
+				'lates': None,
+				'absent': None,
+			},
+			'absent': None,
 			'unrecognised': set(),
 			'period': [config.start, calcEnd()],
 		}
@@ -132,17 +137,19 @@ class AttendancSheet:
 		}
 
 	def memEnter(self, name, time):
-		self.mems[name]['enter'] += [time]
+		self.mems[name]['enter'].append(time)
+		self.mems[name]['enter'].sort()
 		if self.mems[name]['leave']:
 			# mark as 'dropout' if unpresent time is longer than 15mins
 			if (self.mems[name]['leave'][-1] - time).seconds > 15*60:
 				self.mems[name]['attendance']['dropout'] = True
 
 	def memLeave(self, name, time):
-		self.mems[name]['leave'] += [time]
+		self.mems[name]['leave'].append(time)
+		self.mems[name]['leave'].sort()
 
-	def conclude(self):
-		fullAttendances, earlyLeaves, lates, total = 0, 0, 0, len(self.mems)
+	def conclude(self, memberList):
+		present, earlyLeaves, dropouts, lates, absent, total = 0, 0, 0, 0, None, len(self.mems)
 
 		for mem, hist in self.mems.items():
 			if (hist['enter'][0] - self.summary['period'][0]).seconds > 15*60:
@@ -151,17 +158,23 @@ class AttendancSheet:
 
 			if hist['leave'] and (self.summary['period'][1] - hist['leave'][-1]).seconds > 15*60:
 				self.mems[mem]['attendance']['earlyLeave'] = True
-				earlyLeaves += 1				
+				earlyLeaves += 1
 
-		fullAttendances = sum(1 if not hist['attendance']['dropout'] and \
+			if hist['attendance']['dropout']:
+				dropouts += 1
+
+		present = sum(1 if not hist['attendance']['dropout'] and \
 			not hist['attendance']['earlyLeave'] and \
 			not hist['attendance']['late'] else 0 for _, hist in self.mems.items())
-		dropouts = sum(1 if hist['attendance']['dropout'] else 0 for _, hist in self.mems.items())
 
-		self.summary['fullAttendances'] = '{}/{}'.format(fullAttendances, total)
-		self.summary['dropouts'] = '{}/{}'.format(dropouts, total)
-		self.summary['earlyLeaves'] = '{}/{}'.format(earlyLeaves, total)
-		self.summary['lates'] = '{}/{}'.format(lates, total)
+		absent = list(set(memberList) - set(self.mems.keys()))
+
+		self.summary['stat']['present'] = '{}/{}'.format(present, total)
+		self.summary['stat']['dropouts'] = '{}/{}'.format(dropouts, total)
+		self.summary['stat']['earlyLeaves'] = '{}/{}'.format(earlyLeaves, total)
+		self.summary['stat']['lates'] = '{}/{}'.format(lates, total)
+		self.summary['stat']['absent'] = '{}/{}'.format(len(absent), total)
+		self.summary['absent'] = ' | '.join(absent)
 
 
 class AttendanceChecker:
@@ -201,7 +214,7 @@ class AttendanceChecker:
 
 
 	def conclude(self):
-		self.sheet.conclude()
+		self.sheet.conclude(self.memberList)
 
 
 def main(config):
@@ -235,7 +248,7 @@ if __name__ == '__main__':
 		})\
 		.classLength({
 			'period': 3,
-			'unit': 'minutes'
+			'unit': 'hours'
 		})\
 		.timestamp({
 			'start': datetime(2017, 3, 20, 00, 25, 00)
