@@ -18,10 +18,12 @@ class Config:
 		return self
 
 	def classLength(self, props):
-		assert(type(props['period']) is int)
+		assert(type(props['period']) is not str)
 		assert(props['unit'] in ['minutes', 'hours'])
 		self.__attach__(props)
 		return self
+
+
 
 	def timestamp(self, props):
 		for key, ts in props.items():
@@ -38,7 +40,7 @@ class Util:
 	def readMemberList(self, path):
 		with open(path, 'r+', encoding='UTF-8') as source:
 			rawList = csv.DictReader(source)
-			return [row['考勤系统YY昵称'] for row in rawList]
+			return [row['YY昵称'] for row in rawList]
 
 	def readNewRecord(self, path):
 		with open(path, 'r+', encoding='UTF-8') as source:
@@ -54,16 +56,16 @@ class Util:
 		with open(os.path.join(path, fname), 'w+', newline='', encoding='UTF-8') as outfile:
 			cout = csv.writer(outfile, delimiter=',')
 			cout.writerow(['考勤时间', '-'.join(list(map(lambda dte: str(dte), summ['period'])))])
-			cout.writerow(['出勤', summ['stat']['present']])
+			cout.writerow(['全勤', summ['stat']['present']])
 			cout.writerow(['早退', summ['stat']['earlyLeaves']])
 			cout.writerow(['迟到', summ['stat']['lates']])
 			cout.writerow(['缺勤', summ['stat']['absent']])
 			cout.writerow(['中途长期退出', summ['stat']['dropouts']])
+
+			cout.writerow(['未识别名单'] + list(summ['unrecognised']))
+			cout.writerow(['缺勤名单'] + list(summ['absent']))
+
 			cout.writerow(['YY昵称','出勤结果', '活动记录'])
-
-			cout.writerow(['未识别名单', ' | '.join(list(summ['unrecognised']))])
-			cout.writerow(['缺勤名单', ' | '.join(list(summ['absent']))])
-
 			cout.writerows(self.parser.parseSheetToCsvRows(sheet))
 
 
@@ -141,7 +143,7 @@ class AttendancSheet:
 		self.mems[name]['enter'].sort()
 		if self.mems[name]['leave']:
 			# mark as 'dropout' if unpresent time is longer than 15mins
-			if (self.mems[name]['leave'][-1] - time).seconds > 15*60:
+			if (time - self.mems[name]['leave'][-1]).seconds > 15*60:
 				self.mems[name]['attendance']['dropout'] = True
 
 	def memLeave(self, name, time):
@@ -152,11 +154,17 @@ class AttendancSheet:
 		present, earlyLeaves, dropouts, lates, absent, total = 0, 0, 0, 0, None, len(self.mems)
 
 		for mem, hist in self.mems.items():
-			if (hist['enter'][0] - self.summary['period'][0]).seconds > 15*60:
+
+			if hist['enter'][0] > self.summary['period'][0] and \
+				(hist['enter'][0] - self.summary['period'][0]).seconds > 15*60:
+				# mark people running late
 				self.mems[mem]['attendance']['late'] = True
 				lates += 1
 
-			if hist['leave'] and (self.summary['period'][1] - hist['leave'][-1]).seconds > 15*60:
+			if hist['leave'] and \
+				(hist['enter'][-1] <  hist['leave'][-1]) and \
+				(self.summary['period'][1] - hist['leave'][-1]).seconds > 15*60:
+				# mark people left too early
 				self.mems[mem]['attendance']['earlyLeave'] = True
 				earlyLeaves += 1
 
@@ -168,13 +176,15 @@ class AttendancSheet:
 			not hist['attendance']['late'] else 0 for _, hist in self.mems.items())
 
 		absent = list(set(memberList) - set(self.mems.keys()))
+		# print(absent)
 
 		self.summary['stat']['present'] = '{}/{}'.format(present, total)
 		self.summary['stat']['dropouts'] = '{}/{}'.format(dropouts, total)
 		self.summary['stat']['earlyLeaves'] = '{}/{}'.format(earlyLeaves, total)
 		self.summary['stat']['lates'] = '{}/{}'.format(lates, total)
 		self.summary['stat']['absent'] = '{}/{}'.format(len(absent), total)
-		self.summary['absent'] = ' | '.join(absent)
+		self.summary['absent'] = absent
+		# self.summary['absent'] = ' | '.join(absent)
 
 
 class AttendanceChecker:
@@ -183,22 +193,36 @@ class AttendanceChecker:
 		self.sheet = AttendancSheet(config)
 
 		self.memberList = memberList
-		self.lastCheck = config.start
+		self.lastCheck = None
+		self.toDtm = lambda _str: datetime.strptime(str(config.start.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
 
+	def filterRecords(updateFn):
+		def wrapper(self, newRec):
+			filtered = []
+			for rec in newRec:
+				dtime, name = self.toDtm(rec['time']), rec['name']
+
+				if self.lastCheck and dtime <= self.lastCheck:
+					# skip old records
+					continue
+				if name.startswith('澳'):
+					# skip Australian mates, coz they are treated specially :D
+					continue
+				if name not in self.memberList:
+					# take note of unrecognised name and skip them
+					self.sheet.summary['unrecognised'].add(name)
+					continue
+				filtered.append(rec)
+
+			updateFn(self, filtered)
+			self.lastCheck = self.toDtm(newRec[-1]['time'])
+
+		return wrapper
+
+	@filterRecords
 	def updateSheet(self, newRec):
-		toDtm = lambda _str: datetime.strptime(str(config.start.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
-
 		for rec in newRec:
-			dtime, action, name = toDtm(rec['time']), rec['action'], rec['name']
-
-			if dtime <= self.lastCheck:
-				# skip old records
-				continue
-
-			if name not in self.memberList:
-				# take note of unrecognised name
-				self.sheet.summary['unrecognised'].add(name)
-				continue
+			dtime, action, name = self.toDtm(rec['time']), rec['action'], rec['name']
 
 			if name not in self.sheet.mems:
 				# create new entry for members not yet in the attendance sheet
@@ -210,26 +234,20 @@ class AttendanceChecker:
 			elif action == '退出':
 				self.sheet.memLeave(name, dtime)
 
-		self.lastCheck = toDtm(newRec[-1]['time'])
-
-
 	def conclude(self):
 		self.sheet.conclude(self.memberList)
 
 
 def main(config):
+	global checker, memberList
 	# READ
 	util = Util(config)
 	memberList = util.readMemberList(config.memListPath)
 	_1stRecord = util.readNewRecord(config._1stRecPath)
-	_2ndecord = util.readNewRecord(config._2ndRecPath)
-	_3rdRecord = util.readNewRecord(config._3rdRecPath)
 
 	# COMPUTE
 	checker = AttendanceChecker(memberList, config)
 	checker.updateSheet(_1stRecord)
-	checker.updateSheet(_2ndecord)
-	checker.updateSheet(_3rdRecord)
 
 	# SAVE
 	checker.conclude()
@@ -238,20 +256,21 @@ def main(config):
 	print('\n====\ndone')
 
 if __name__ == '__main__':
+	"""
+		中文用gb18030
+	"""
 	config = Config()\
 		.configFile({
-			'memListPath': './examples/研讨班名单.csv',
-			'_1stRecPath': './examples/2017-03-20-00-26-00.txt',
-			'_2ndRecPath': './examples/2017-03-20-00-27-00.txt',
-			'_3rdRecPath': './examples/2017-03-20-00-29-00.txt',
+			'memListPath': './examples/考勤名单.csv',
+			'_1stRecPath': './examples/20170326.txt',
 			'savePath': './考勤结果/'
 		})\
 		.classLength({
-			'period': 3,
+			'period': 2,
 			'unit': 'hours'
 		})\
 		.timestamp({
-			'start': datetime(2017, 3, 20, 00, 25, 00)
+			'start': datetime(2017, 3, 26, 8, 30, 00)
 		})
 
 	main(config)
