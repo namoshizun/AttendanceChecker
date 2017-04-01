@@ -5,45 +5,39 @@ from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 
 class Config:
+	def __init__(self, options):
+		self.__attach__(options)
+
 	def __attach__(self, newProps):
 		for key, value in newProps.items():
 			self.__dict__[key] = value
 		return self
-
-	def configFile(self, props):
-		for key, file in props.items():
-			if key != 'savePath' and not os.path.exists(file):
-				raise FileNotFoundError(key + ' does not exist')
-		self.__attach__(props)
-		return self
-
-	def classLength(self, props):
-		assert(type(props['period']) is not str)
-		assert(props['unit'] in ['minutes', 'hours'])
-		self.__attach__(props)
-		return self
-
-
-
-	def timestamp(self, props):
-		for key, ts in props.items():
-			assert(type(ts) is datetime)
-		self.__attach__(props)
-		return self
-
 
 class Util:
 	def __init__(self, config):
 		self.config = config
 		self.parser = RecordsParser()
 
-	def readMemberList(self, path):
-		with open(path, 'r+', encoding='UTF-8') as source:
-			rawList = csv.DictReader(source)
-			return [row['YY昵称'] for row in rawList]
+	def checkEncoding(ioFn):
+		def checker(self, path):
+			try:
+				with open(path, 'r', encoding='UTF-8') as source:
+					source.readline()
+				ret = ioFn(self, path)
+			except UnicodeDecodeError:
+				ret = ioFn(self, path, 'gb18030')
+			return ret
+		return checker
 
-	def readNewRecord(self, path):
-		with open(path, 'r+', encoding='UTF-8') as source:
+	@checkEncoding
+	def readMemberList(self, path, encoding='UTF-8'):
+		with open(path, 'r+', encoding=encoding) as source:
+			rawList = csv.DictReader(source)
+			return [row['YY昵称'] for row in rawList if row['YY昵称']]
+
+	@checkEncoding
+	def readNewRecord(self, path, encoding='UTF-8'):
+		with open(path, 'r+', encoding=encoding) as source:
 			rawLines = source.read().splitlines()
 			return self.parser.rawToDicts(rawLines)
 
@@ -51,9 +45,9 @@ class Util:
 		if not os.path.exists(path):
 			os.makedirs(path)
 		summ = sheet.summary
-		fname = str(self.config.start.date()) + '.csv'
+		fname = str(self.config.startTime.date()) + '.csv'
 
-		with open(os.path.join(path, fname), 'w+', newline='', encoding='UTF-8') as outfile:
+		with open(os.path.join(path, fname), 'w+', newline='', encoding='gb18030') as outfile:
 			cout = csv.writer(outfile, delimiter=',')
 			cout.writerow(['考勤时间', '-'.join(list(map(lambda dte: str(dte), summ['period'])))])
 			cout.writerow(['全勤', summ['stat']['present']])
@@ -67,6 +61,7 @@ class Util:
 
 			cout.writerow(['YY昵称','出勤结果', '活动记录'])
 			cout.writerows(self.parser.parseSheetToCsvRows(sheet))
+		return fname
 
 
 class RecordsParser:
@@ -111,11 +106,7 @@ class RecordsParser:
 
 class AttendancSheet:
 	def __init__(self, config):
-		def calcEnd():
-			return config.start + {
-				'hours': timedelta(hours=config.period),
-				'minutes': timedelta(minutes=config.period)
-			}.get(config.unit)
+		endTime = config.startTime + timedelta(minutes=config.classLength[0]*60+config.classLength[1])
 
 		self.summary = {
 			'stat': {
@@ -127,7 +118,7 @@ class AttendancSheet:
 			},
 			'absent': None,
 			'unrecognised': set(),
-			'period': [config.start, calcEnd()],
+			'period': [config.startTime, endTime],
 		}
 		self.mems = {}
 
@@ -139,19 +130,22 @@ class AttendancSheet:
 		}
 
 	def memEnter(self, name, time):
+		if time in self.mems[name]['enter']:
+			return
+
 		self.mems[name]['enter'].append(time)
-		self.mems[name]['enter'].sort()
 		if self.mems[name]['leave']:
 			# mark as 'dropout' if unpresent time is longer than 15mins
 			if (time - self.mems[name]['leave'][-1]).seconds > 15*60:
 				self.mems[name]['attendance']['dropout'] = True
 
 	def memLeave(self, name, time):
+		if time in self.mems[name]['leave']:
+			return
 		self.mems[name]['leave'].append(time)
-		self.mems[name]['leave'].sort()
 
 	def conclude(self, memberList):
-		present, earlyLeaves, dropouts, lates, absent, total = 0, 0, 0, 0, None, len(self.mems)
+		present, earlyLeaves, dropouts, lates, absent, total = 0, 0, 0, 0, None, len(memberList)
 
 		for mem, hist in self.mems.items():
 
@@ -176,7 +170,6 @@ class AttendancSheet:
 			not hist['attendance']['late'] else 0 for _, hist in self.mems.items())
 
 		absent = list(set(memberList) - set(self.mems.keys()))
-		# print(absent)
 
 		self.summary['stat']['present'] = '{}/{}'.format(present, total)
 		self.summary['stat']['dropouts'] = '{}/{}'.format(dropouts, total)
@@ -184,7 +177,6 @@ class AttendancSheet:
 		self.summary['stat']['lates'] = '{}/{}'.format(lates, total)
 		self.summary['stat']['absent'] = '{}/{}'.format(len(absent), total)
 		self.summary['absent'] = absent
-		# self.summary['absent'] = ' | '.join(absent)
 
 
 class AttendanceChecker:
@@ -194,7 +186,7 @@ class AttendanceChecker:
 
 		self.memberList = memberList
 		self.lastCheck = None
-		self.toDtm = lambda _str: datetime.strptime(str(config.start.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
+		self.toDtm = lambda _str: datetime.strptime(str(config.startTime.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
 
 	def filterRecords(updateFn):
 		def wrapper(self, newRec):
@@ -236,41 +228,3 @@ class AttendanceChecker:
 
 	def conclude(self):
 		self.sheet.conclude(self.memberList)
-
-
-def main(config):
-	global checker, memberList
-	# READ
-	util = Util(config)
-	memberList = util.readMemberList(config.memListPath)
-	_1stRecord = util.readNewRecord(config._1stRecPath)
-
-	# COMPUTE
-	checker = AttendanceChecker(memberList, config)
-	checker.updateSheet(_1stRecord)
-
-	# SAVE
-	checker.conclude()
-	util.outputAttendence(config.savePath, checker.sheet)
-
-	print('\n====\ndone')
-
-if __name__ == '__main__':
-	"""
-		中文用gb18030
-	"""
-	config = Config()\
-		.configFile({
-			'memListPath': './examples/考勤名单.csv',
-			'_1stRecPath': './examples/20170326.txt',
-			'savePath': './考勤结果/'
-		})\
-		.classLength({
-			'period': 2,
-			'unit': 'hours'
-		})\
-		.timestamp({
-			'start': datetime(2017, 3, 26, 8, 30, 00)
-		})
-
-	main(config)
