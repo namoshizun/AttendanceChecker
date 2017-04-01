@@ -47,7 +47,7 @@ def test():
     controller.onCheckAttendance(options)
 
 if __name__ == '__main__':
-    test()
-    # mainView = tix.Tk()
-    # controller = Controller(mainView)
-    # controller.run()
+    # test()
+    mainView = tix.Tk()
+    controller = Controller(mainView)
+    controller.run()
