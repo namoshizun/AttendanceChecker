@@ -1,8 +1,9 @@
-# -*- coding: UTF-8 -*-
-import re, json
+import re, json, sys
 import os, csv
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
+
+DEFAULT_ENC = sys.getdefaultencoding()
 
 class Config:
 	def __init__(self, options):
@@ -19,24 +20,35 @@ class Util:
 		self.parser = RecordsParser()
 
 	def checkEncoding(ioFn):
-		def checker(self, path):
+		encodings = ['utf-8', 'utf-16', 'gb18030', 'gb2312', 'gbk']
+
+		def detectEncoding(path, idx=0):
 			try:
-				with open(path, 'r', encoding='UTF-8') as source:
-					source.readline()
-				ret = ioFn(self, path)
+				with open(path, encoding=encodings[idx]) as source:
+					source.read()
+				return True, encodings[idx]
+			except IndexError:
+				return False, None
 			except UnicodeDecodeError:
-				ret = ioFn(self, path, 'gb18030')
-			return ret
+				return detectEncoding(path, idx+1)
+
+
+		def checker(self, path):
+			succ, encoding = detectEncoding(path)
+			if succ:
+				return ioFn(self, path, encoding)
+			else:
+				raise UnicodeDecodeError('cannot decode file ' + path)
 		return checker
 
 	@checkEncoding
-	def readMemberList(self, path, encoding='UTF-8'):
+	def readMemberList(self, path, encoding=DEFAULT_ENC):
 		with open(path, 'r+', encoding=encoding) as source:
 			rawList = csv.DictReader(source)
 			return [row['YY昵称'] for row in rawList if row['YY昵称']]
 
 	@checkEncoding
-	def readNewRecord(self, path, encoding='UTF-8'):
+	def readNewRecord(self, path, encoding=DEFAULT_ENC):
 		with open(path, 'r+', encoding=encoding) as source:
 			rawLines = source.read().splitlines()
 			return self.parser.rawToDicts(rawLines)
@@ -47,7 +59,7 @@ class Util:
 		summ = sheet.summary
 		fname = str(self.config.startTime.date()) + '.csv'
 
-		with open(os.path.join(path, fname), 'w+', newline='', encoding='gb18030') as outfile:
+		with open(os.path.join(path, fname), 'w+', newline='', encoding=DEFAULT_ENC) as outfile:
 			cout = csv.writer(outfile, delimiter=',')
 			cout.writerow(['考勤时间', '-'.join(list(map(lambda dte: str(dte), summ['period'])))])
 			cout.writerow(['全勤', summ['stat']['present']])
@@ -157,6 +169,7 @@ class AttendancSheet:
 
 			if hist['leave'] and \
 				(hist['enter'][-1] <  hist['leave'][-1]) and \
+				(self.summary['period'][1] > hist['leave'][-1]) and \
 				(self.summary['period'][1] - hist['leave'][-1]).seconds > 15*60:
 				# mark people left too early
 				self.mems[mem]['attendance']['earlyLeave'] = True

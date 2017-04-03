@@ -1,4 +1,3 @@
-# -*- coding: UTF-8 -*-
 from Tk import Application
 from AttendanceChecker import Config, Util, AttendanceChecker
 from tkinter import tix
@@ -38,11 +37,11 @@ class Controller:
 def test():
     controller = Controller()
     options = {
-        'startTime': datetime(2017, 3, 26, 8, 30, 00),
+        'startTime': datetime(2017, 4, 2, 20, 30, 00),
         'classLength': [2, 0],
-        'memList': 'C:\\Users\\s400\\Desktop\\研讨班软件\\AttendanceChecker\\AttendanceChecker\\考勤表.csv',
-        'records': 'C:\\Users\\s400\\Desktop\\研讨班软件\\AttendanceChecker\\AttendanceChecker\\examples\\20170326.txt',
-        'savePath': 'C:\\Users\\s400\\Desktop\\研讨班软件\\AttendanceChecker\\AttendanceChecker\\考勤结果\\'
+        'memList': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/考勤表.csv',
+        'records': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/examples/2017_04_02.txt',
+        'savePath': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/考勤结果/'
     }
     controller.onCheckAttendance(options)
 

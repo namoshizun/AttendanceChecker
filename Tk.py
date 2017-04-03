@@ -1,4 +1,3 @@
-# -*- coding: UTF-8 -*-
 import os, re
 from datetime import datetime
 from tkinter import Label, Entry, Button, StringVar
