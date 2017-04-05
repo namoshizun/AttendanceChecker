@@ -1,5 +1,5 @@
 import re, json, sys
-import os, csv
+import os, csv, codecs
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 
@@ -59,7 +59,7 @@ class Util:
 		summ = sheet.summary
 		fname = str(self.config.startTime.date()) + '.csv'
 
-		with open(os.path.join(path, fname), 'w+', newline='', encoding=DEFAULT_ENC) as outfile:
+		with open(os.path.join(path, fname), 'w+', newline='', encoding='utf-8-sig') as outfile:
 			cout = csv.writer(outfile, delimiter=',')
 			cout.writerow(['考勤时间', '-'.join(list(map(lambda dte: str(dte), summ['period'])))])
 			cout.writerow(['全勤', summ['stat']['present']])
