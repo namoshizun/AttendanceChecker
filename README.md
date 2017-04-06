@@ -38,4 +38,4 @@
 
 **0.0.2**: 加强对输入文件的编码检测。[15d4e36](https://github.com/namoshizun/AttendanceChecker/commit/15d4e363f1415731d5f6fb9365570a8b59a569d9)
 
-**0.0.3**: 修改输出csv的编码方案为'utf-8-sig'以应对excel乱码问题； 输出结果中根据出勤情况排序 [13c19a2](https://github.com/namoshizun/AttendanceChecker/commit/13c19a2ab2afaa7f19e75566e1c7ad9b11dc6a04)[fb97912](https://github.com/namoshizun/AttendanceChecker/commit/fb9791214182711744719b720d2c928cfd039022)
+**0.0.3**: 修改输出csv的编码方案为'utf-8-sig'以应对excel乱码问题； 输出结果中根据出勤情况排序 [13c19a2](https://github.com/namoshizun/AttendanceChecker/commit/13c19a2ab2afaa7f19e75566e1c7ad9b11dc6a04) [fb97912](https://github.com/namoshizun/AttendanceChecker/commit/fb9791214182711744719b720d2c928cfd039022)
