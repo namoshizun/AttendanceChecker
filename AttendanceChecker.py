@@ -113,6 +113,7 @@ class RecordsParser:
 				# 进出记录
 				' '.join(fullRec)
 			])
+		rows.sort(key=lambda x: x[1]) # sort by attendance result
 		return rows
 
 
