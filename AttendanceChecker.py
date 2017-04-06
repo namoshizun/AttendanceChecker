@@ -67,10 +67,7 @@ class Util:
 			cout.writerow(['迟到', summ['stat']['lates']])
 			cout.writerow(['缺勤', summ['stat']['absent']])
 			cout.writerow(['中途长期退出', summ['stat']['dropouts']])
-
 			cout.writerow(['未识别名单'] + list(summ['unrecognised']))
-			cout.writerow(['缺勤名单'] + list(summ['absent']))
-
 			cout.writerow(['YY昵称','出勤结果', '活动记录'])
 			cout.writerows(self.parser.parseSheetToCsvRows(sheet))
 		return fname
@@ -113,7 +110,11 @@ class RecordsParser:
 				# 进出记录
 				' '.join(fullRec)
 			])
-		rows.sort(key=lambda x: x[1]) # sort by attendance result
+		# sort by attendance result
+		rows.sort(key=lambda x: x[1])
+		# add absent folks separately
+		list(map(lambda absentName: rows.append([absentName, '缺勤+']), sheet.summary['absent']))
+
 		return rows
 
 
