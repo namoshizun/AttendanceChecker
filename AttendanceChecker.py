@@ -2,8 +2,10 @@ import re, json, sys
 import os, csv, codecs
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
+from functools import reduce
 
 DEFAULT_ENC = sys.getdefaultencoding()
+MAX_TIME = datetime.now() + timedelta(9999)
 
 class Config:
 	def __init__(self, options):
@@ -92,11 +94,12 @@ class RecordsParser:
 
 	def parseSheetToCsvRows(self, sheet):
 		rows = []
-		def translateAttendance(dropout=False, earlyLeave=False, late=False):
+		def translateAttendance(dropout=False, earlyLeave=False, late=False, absent=False):
 			ret = ''
 			if dropout: ret += '中途长期退出+'
 			if earlyLeave: ret += '早退+'
 			if late: ret += '迟到+'
+			if absent: ret += '缺勤+'
 			return ret + '全勤+' if ret == '' else ret
 
 		for name, hist in sheet.mems.items():
@@ -110,10 +113,10 @@ class RecordsParser:
 				# 进出记录
 				' '.join(fullRec)
 			])
-		# sort by attendance result
-		rows.sort(key=lambda x: x[1])
 		# add absent folks separately
 		list(map(lambda absentName: rows.append([absentName, '缺勤+']), sheet.summary['absent']))
+		# sort by attendance result
+		rows.sort(key=lambda x: x[1])
 
 		return rows
 
@@ -121,7 +124,6 @@ class RecordsParser:
 class AttendancSheet:
 	def __init__(self, config):
 		endTime = config.startTime + timedelta(minutes=config.classLength[0]*60+config.classLength[1])
-
 		self.summary = {
 			'stat': {
 				'present': None,
@@ -140,58 +142,65 @@ class AttendancSheet:
 		self.mems[name] = {
 			'enter': [],
 			'leave': [],
-			'attendance': {'late': False, 'dropout': False, 'earlyLeave': False}
+			'attendance': {'late': False, 'dropout': False, 'earlyLeave': False, 'absent': False}
 		}
 
 	def memEnter(self, name, time):
 		if time in self.mems[name]['enter']:
 			return
-
 		self.mems[name]['enter'].append(time)
-		if self.mems[name]['leave']:
-			# mark as 'dropout' if unpresent time is longer than 15mins
-			if (time - self.mems[name]['leave'][-1]).seconds > 15*60:
-				self.mems[name]['attendance']['dropout'] = True
+		self.mems[name]['leave'].append(MAX_TIME) # placeholder
 
 	def memLeave(self, name, time):
 		if time in self.mems[name]['leave']:
 			return
-		self.mems[name]['leave'].append(time)
+		self.mems[name]['leave'][-1] = time # polyfill
 
 	def conclude(self, memberList):
-		present, earlyLeaves, dropouts, lates, absent, total = 0, 0, 0, 0, None, len(memberList)
+
+		present, earlyLeaves, dropouts, lates, total = 0, 0, 0, 0, len(memberList)
+		start, end = self.summary['period'][0], self.summary['period'][1]
+		absence = list(set(memberList) - set(self.mems.keys()))
 
 		for mem, hist in self.mems.items():
+			pairs = list(zip(hist['enter'], hist['leave']))
+			pairs = list(filter(lambda p: p[1] >= start and p[0] <= end, pairs)) # trim unimportant pairs
 
-			if hist['enter'][0] > self.summary['period'][0] and \
-				(hist['enter'][0] - self.summary['period'][0]).seconds > 15*60:
-				# mark people running late
-				self.mems[mem]['attendance']['late'] = True
-				lates += 1
+			# fail to present a valid attendance
+			if not pairs:
+				self.mems[mem]['attendance']['absent'] = True
+				absence.append(mem)
 
-			if hist['leave'] and \
-				(hist['enter'][-1] <  hist['leave'][-1]) and \
-				(self.summary['period'][1] > hist['leave'][-1]) and \
-				(self.summary['period'][1] - hist['leave'][-1]).seconds > 15*60:
-				# mark people left too early
-				self.mems[mem]['attendance']['earlyLeave'] = True
-				earlyLeaves += 1
+			else:
+				# first enter - start > treshold
+				if pairs[0][0] > start and (pairs[0][0] - start).seconds > 15*60:
+					self.mems[mem]['attendance']['late'] = True
+					lates += 1
 
-			if hist['attendance']['dropout']:
-				dropouts += 1
+				# end - last leave > treshold
+				if end > pairs[-1][1] and (end - pairs[-1][1]).seconds > 15*60:
+					self.mems[mem]['attendance']['earlyLeave'] = True
+					earlyLeaves += 1
+
+				# basicially traverse pairs interleavely and check if there is any time gap longer than 15mins
+				dropoutDet = reduce(lambda acc, curr: [curr[1], (curr[0]-acc[0]).seconds > 15*60], pairs, [pairs[0][0], False])
+				if dropoutDet[1]:
+					self.mems[mem]['attendance']['dropout'] = True
+					dropouts += 1
+
 
 		present = sum(1 if not hist['attendance']['dropout'] and \
 			not hist['attendance']['earlyLeave'] and \
+			not hist['attendance']['absent'] and \
 			not hist['attendance']['late'] else 0 for _, hist in self.mems.items())
 
-		absent = list(set(memberList) - set(self.mems.keys()))
 
 		self.summary['stat']['present'] = '{}/{}'.format(present, total)
 		self.summary['stat']['dropouts'] = '{}/{}'.format(dropouts, total)
 		self.summary['stat']['earlyLeaves'] = '{}/{}'.format(earlyLeaves, total)
 		self.summary['stat']['lates'] = '{}/{}'.format(lates, total)
-		self.summary['stat']['absent'] = '{}/{}'.format(len(absent), total)
-		self.summary['absent'] = absent
+		self.summary['stat']['absent'] = '{}/{}'.format(len(absence), total)
+		self.summary['absent'] = absence
 
 
 class AttendanceChecker:
