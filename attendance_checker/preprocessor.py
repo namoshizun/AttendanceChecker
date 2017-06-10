@@ -1,15 +1,9 @@
-import sys, os, glob, json
 import numpy as np
 from sklearn.cluster import DBSCAN
 from collections import Counter
 from .db_manager import Database
 from .image import BWImage
 from .util import timing, first_occurrence
-
-
-def read_config():
-	with open('config.json', 'r+') as file:
-		return json.load(file)
 
 
 class Preprocessor:
@@ -59,31 +53,3 @@ class Preprocessor:
 			names.append(croped if croped.shape == size else me.pad(croped, size))
 
 		return names
-
-
-@timing
-def test():
-	for name in wb_names:
-		print(db.lookup(name))
-	
-# """
-if __name__ == '__main__':
-	# init database
-	config = read_config()
-	size = config['size']
-	db = Database(config).load()
-
-	# read screen shot and crop name segments
-	screen_shot = BWImage('./dev/training.png')
-	wb = screen_shot.wb
-	wb_names = Preprocessor.crop_names(wb, size=(size['height'], size['width']))
-
-	# lookup name segment tags
-	for name in wb_names:
-		print(db.lookup([np.ravel(name)]))
-
-	# if you want to use names in this screen shot as database source
-	test_labels = list(range(len(wb_names)))
-	db.study(wb_names, test_labels, save_model=True)
-
-# """
