@@ -1,4 +1,4 @@
-from tk import Application
+from view import Application
 from attendance_checker import Config, CheckerUtil, AttendanceChecker 
 from tkinter import tix
 from datetime import datetime
@@ -15,7 +15,7 @@ class Controller:
     def onCheckAttendance(self, options):
         try:
             config = Config(options)
-            util = Util(config)
+            util = CheckerUtil(config)
             if self.memberList is None:
                 self.memberList = util.readMemberList(options['memList'])
 
@@ -45,8 +45,8 @@ def test():
     }
     controller.onCheckAttendance(options)
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 #     test()
-    # mainView = tix.Tk()
-    # controller = Controller(mainView)
-    # controller.run()
+    mainView = tix.Tk()
+    controller = Controller(mainView)
+    controller.run()

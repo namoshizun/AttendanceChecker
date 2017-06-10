@@ -20,8 +20,8 @@ class Application(tix.Frame):
 
     def configWindow(self):
         self.master.title('研讨班辅助考勤')
-        self.master.maxsize(450, 350)
-        self.master.minsize(450, 350)
+        self.master.maxsize(450, 300)
+        self.master.minsize(450, 300)
 
     def buildStringVar(self, text):
         strVar = StringVar()
@@ -110,14 +110,15 @@ class Application(tix.Frame):
                 self.widgets['endEnt']['content'].set(filepath)
         return handler
 
-    def validateInputs(submitFn):
+    def validateOptions(submitFn):
         def validator(self):
             w = self.widgets
             options = {
                 'startTime': w['startTimeEnt']['self'].get(),
                 'classLength': w['clsLenEnt']['self'].get(),
                 'memList': w['memListEnt']['self'].get(),
-                'records': w['recEnt']['self'].get(),
+                'beginSnapshot': w['beginEnt']['self'].get(),
+                'endSnapshot': w['endEnt']['self'].get(),
                 'savePath': os.path.join(CURR_DIR, '考勤结果/')
             }
 
@@ -139,7 +140,7 @@ class Application(tix.Frame):
             options['classLength'] = list(map(lambda val: int(val), res[0]))
 
             # check files
-            for file in [options['memList'], options['records']]:
+            for file in [options['memList'], options['beginSnapshot'], options['endSnapshot']]:
                 if not os.path.exists(file):
                     messagebox.showwarning('请检查','文件不存在：' + file)
                     return
@@ -148,7 +149,7 @@ class Application(tix.Frame):
         return validator
 
 
-    @validateInputs
+    @validateOptions
     def submitConfig(self, options):
         """
         expect options:
@@ -156,7 +157,8 @@ class Application(tix.Frame):
             'startTime': datetime object,
             'classLength': [hours, minutes],
             'memList': validPath,
-            'records': validPath,
+            'beginSnapshot': validPath,
+            'endSnapshot': validPath,
             'savePath': defaultSavePath
         }
         """
