@@ -7,7 +7,7 @@ from functools import reduce
 DEFAULT_ENC = sys.getdefaultencoding()
 MAX_TIME = datetime.now() + timedelta(9999)
 
-class Config:
+class UserParams:
 	def __init__(self, options):
 		self.__attach__(options)
 
@@ -17,8 +17,8 @@ class Config:
 		return self
 
 class CheckerUtil:
-	def __init__(self, config):
-		self.config = config
+	def __init__(self, params):
+		self.params = params
 		self.parser = RecordsParser()
 
 	def checkEncoding(ioFn):
@@ -42,6 +42,23 @@ class CheckerUtil:
 			else:
 				raise UnicodeDecodeError('cannot decode file ' + path)
 		return checker
+	
+	def synthesise_record(self, startNames, endNames):
+        """
+        mock-up the YY chatboard record data that can be immediately consumed by attendance record.
+        """
+		lines, params = [], self.params
+		endTime = params.startTime + timedelta(minutes=params.classLength[0]*60+params.classLength[1])
+		template = '通知： [{name}] {action} [法义辅导] 频道。({time})'
+		for name in startNames:
+			lines.append(template.format(name=name, action='进入', time=datetime.strftime(params.startTime, '%H:%M:%S')))
+		
+		earlyLeaves = set(startNames) - set(endNames)
+		mockLeaveTime = endTime - datetime.timedelta(minutes=15.5)
+		for name in earlyLeaves:
+			lines.append(template.format(name=name, action='退出', time=datetime.strftime(mockLeaveTime, '%H:%M:%S')))
+		
+		return os.linesp.join(lines)
 
 	@checkEncoding
 	def readMemberList(self, path, encoding=DEFAULT_ENC):
@@ -49,17 +66,11 @@ class CheckerUtil:
 			rawList = csv.DictReader(source)
 			return [row['YY昵称'] for row in rawList if row['YY昵称']]
 
-	@checkEncoding
-	def readNewRecord(self, path, encoding=DEFAULT_ENC):
-		with open(path, 'r+', encoding=encoding) as source:
-			rawLines = source.read().splitlines()
-			return self.parser.rawToDicts(rawLines)
-
 	def outputAttendence(self, path, sheet):
 		if not os.path.exists(path):
 			os.makedirs(path)
 		summ = sheet.summary
-		fname = str(self.config.startTime.date()) + '.csv'
+		fname = str(self.params.startTime.date()) + '.csv'
 
 		with open(os.path.join(path, fname), 'w+', newline='', encoding='utf-8-sig') as outfile:
 			cout = csv.writer(outfile, delimiter=',')
@@ -122,8 +133,8 @@ class RecordsParser:
 
 
 class AttendancSheet:
-	def __init__(self, config):
-		endTime = config.startTime + timedelta(minutes=config.classLength[0]*60+config.classLength[1])
+	def __init__(self, params):
+		endTime = params.startTime + timedelta(minutes=params.classLength[0]*60+params.classLength[1])
 		self.summary = {
 			'stat': {
 				'present': None,
@@ -134,7 +145,7 @@ class AttendancSheet:
 			},
 			'absent': None,
 			'unrecognised': set(),
-			'period': [config.startTime, endTime],
+			'period': [params.startTime, endTime],
 		}
 		self.mems = {}
 
@@ -204,13 +215,12 @@ class AttendancSheet:
 
 
 class AttendanceChecker:
-	def __init__(self, memberList, config):
-		self.config = config
-		self.sheet = AttendancSheet(config)
+	def __init__(self, memberList, params):
+		self.sheet = AttendancSheet(params)
 
 		self.memberList = memberList
 		self.lastCheck = None
-		self.toDtm = lambda _str: datetime.strptime(str(config.startTime.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
+		self.toDtm = lambda _str: datetime.strptime(str(params.startTime.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
 
 	def filterRecords(updateFn):
 		def wrapper(self, newRec):

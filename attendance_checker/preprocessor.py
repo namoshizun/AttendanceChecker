@@ -66,7 +66,7 @@ def test():
 	for name in wb_names:
 		print(db.lookup(name))
 	
-"""
+# """
 if __name__ == '__main__':
 	# init database
 	config = read_config()
@@ -79,11 +79,11 @@ if __name__ == '__main__':
 	wb_names = Preprocessor.crop_names(wb, size=(size['height'], size['width']))
 
 	# lookup name segment tags
-	# for name in wb_names:
-	# 	print(db.lookup([np.ravel(name)]))
+	for name in wb_names:
+		print(db.lookup([np.ravel(name)]))
 
 	# if you want to use names in this screen shot as database source
-	# test_labels = list(range(len(wb_names)))
-	# db.study(wb_names, test_labels, save_model=True)
+	test_labels = list(range(len(wb_names)))
+	db.study(wb_names, test_labels, save_model=True)
 
-"""
+# """
