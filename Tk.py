@@ -1,10 +1,11 @@
 import os, re
 from datetime import datetime
 from tkinter import Label, Entry, Button, StringVar
-from tkinter import tix, messagebox
 from tkinter.filedialog import askopenfilename
+from tkinter import tix, messagebox
 
 CURR_DIR = os.getcwd()
+ASSET_DIR = os.path.join(CURR_DIR, 'assets')
 
 class Application(tix.Frame):
     def __init__(self, callback, master=None):
@@ -15,12 +16,12 @@ class Application(tix.Frame):
         self.pack()
         self.configWindow()
         self.createWidgets()
-        self.locateWidgets()
+        self.positionWidgets()
 
     def configWindow(self):
         self.master.title('研讨班辅助考勤')
-        self.master.maxsize(450, 250)
-        self.master.minsize(450, 250)
+        self.master.maxsize(450, 350)
+        self.master.minsize(450, 350)
 
     def buildStringVar(self, text):
         strVar = StringVar()
@@ -41,17 +42,18 @@ class Application(tix.Frame):
         clsLenEnt = Entry(self, textvariable=clsLenVar)
 
         # member list file select
-        tmp = os.path.join(CURR_DIR, '考勤表.csv')
-        memListVar = self.buildStringVar(tmp if os.path.exists(tmp) else '')
+        defaultSheet = os.path.join(ASSET_DIR, '考勤表.csv')
+        memListVar = self.buildStringVar(defaultSheet if os.path.exists(defaultSheet) else '')
         memListLabel = Label(self, text='学员列表')
         memListEnt = Entry(self, textvariable=memListVar)
         memListBtn = Button(self, text='选择文件', command=self.selectMemList)
 
-        # record file select
-        recVar = self.buildStringVar('')
-        recLabel = Label(self, text='进出记录')
-        recEnt = Entry(self, textvariable=recVar)
-        recBtn = Button(self, text='选择文件', command=self.selectRecFile)
+        # attendance snapshots
+        beginVar, endVar = self.buildStringVar(''), self.buildStringVar('')
+        beginLabel, endLabel = Label(self, text='首次截图'), Label(self, text='结束截图')
+        beginEnt, endEnt = Entry(self, textvariable=beginVar), Entry(self, textvariable=endVar)
+        beginBtn = Button(self, text='选择文件', command=self.selectRecFile(True))
+        endBtn = Button(self, text='选择文件', command=self.selectRecFile(False))
 
         # submit button
         submitBtn = Button(self,
@@ -60,17 +62,19 @@ class Application(tix.Frame):
 
         self.widgets = {
             'startTimeLabel': startTimeLabel,
-            'clsLenLabel': clsLenLabel,
-            'memListLabel': memListLabel, 'memListBtn': memListBtn,
-            'recLabel': recLabel, 'recBtn': recBtn,
             'startTimeEnt': { 'self': startTimeEnt, 'content': startTimeVar },
-            'memListEnt': { 'self': memListEnt, 'content': memListVar},
-            'recEnt': { 'self': recEnt, 'content': recVar},
+            'clsLenLabel': clsLenLabel,
             'clsLenEnt': {'self': clsLenEnt, 'content': clsLenVar },
+            'memListLabel': memListLabel, 'memListBtn': memListBtn,
+            'memListEnt': { 'self': memListEnt, 'content': memListVar},
+            'beginLabel': beginLabel, 'beginBtn': beginBtn,
+            'beginEnt': { 'self': beginEnt, 'content': beginVar},
+            'endLabel': endLabel, 'endBtn': endBtn,
+            'endEnt': { 'self': endEnt, 'content': endVar},
             'submitBtn': submitBtn
         }
 
-    def locateWidgets(self):
+    def positionWidgets(self):
         w = self.widgets # aliasing
 
         w['startTimeLabel'].grid(row=0, column=0, sticky='W', pady=10)
@@ -83,19 +87,28 @@ class Application(tix.Frame):
         w['memListEnt']['self'].grid(row=2, column=1, sticky='W', pady=10)
         w['memListBtn'].grid(row=2, column=2, sticky='W', pady=10, padx=10)
 
-        w['recLabel'].grid(row=3, column=0, sticky='W', pady=10)
-        w['recEnt']['self'].grid(row=3, column=1, sticky='W', pady=10)
-        w['recBtn'].grid(row=3, column=2, sticky='W', pady=10, padx=10)
+        w['beginLabel'].grid(row=3, column=0, sticky='W', pady=10)
+        w['beginEnt']['self'].grid(row=3, column=1, sticky='W', pady=10)
+        w['beginBtn'].grid(row=3, column=2, sticky='W', pady=10, padx=10)
 
-        w['submitBtn'].grid(row=4, column=1, sticky='we')
+        w['endLabel'].grid(row=4, column=0, sticky='W', pady=10)
+        w['endEnt']['self'].grid(row=4, column=1, sticky='W', pady=10)
+        w['endBtn'].grid(row=4, column=2, sticky='W', pady=10, padx=10)
+
+        w['submitBtn'].grid(row=5, column=1, sticky='we')
 
     def selectMemList(self):
         filepath = askopenfilename(initialdir=CURR_DIR)
         self.widgets['memListEnt']['content'].set(filepath)
 
-    def selectRecFile(self):
-        filepath = askopenfilename(initialdir=CURR_DIR)
-        self.widgets['recEnt']['content'].set(filepath)
+    def selectRecFile(self, isBegin=True):
+        def handler():
+            filepath = askopenfilename(initialdir=CURR_DIR)
+            if isBegin:
+                self.widgets['beginEnt']['content'].set(filepath)
+            else:
+                self.widgets['endEnt']['content'].set(filepath)
+        return handler
 
     def validateInputs(submitFn):
         def validator(self):

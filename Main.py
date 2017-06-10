@@ -1,5 +1,5 @@
-from Tk import Application
-from AttendanceChecker import Config, Util, AttendanceChecker
+from tk import Application
+from attendance_checker import Config, CheckerUtil, AttendanceChecker 
 from tkinter import tix
 from datetime import datetime
 import os
@@ -39,14 +39,14 @@ def test():
     options = {
         'startTime': datetime(2017, 4, 2, 20, 30, 00),
         'classLength': [2, 0],
-        'memList': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/考勤表.csv',
+        'memList': '/Users/YuanZhong/Desktop/研讨班考勤软件/Recogniser/assets/考勤表.csv',
         'records': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/examples/2017_04_02.txt',
         'savePath': '/Users/YuanZhong/Desktop/研讨班考勤软件/AttendanceChecker/考勤结果/'
     }
     controller.onCheckAttendance(options)
 
-if __name__ == '__main__':
-    # test()
-    mainView = tix.Tk()
-    controller = Controller(mainView)
-    controller.run()
+# if __name__ == '__main__':
+#     test()
+    # mainView = tix.Tk()
+    # controller = Controller(mainView)
+    # controller.run()

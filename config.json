@@ -1,0 +1,8 @@
+{
+	"size": {
+		"width": 180,
+		"height": 12
+	},
+	"db_path": "./database/",
+	"classifier_path": "./assets/logistic_classifier.pkl"
+}
