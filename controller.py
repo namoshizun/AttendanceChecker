@@ -22,18 +22,10 @@ class Controller:
             return json.load(file)
     
     def readSnapshot(self, path):
-        h, w = self.config.size['height'], self.config.size['width']
+        h, w = self.config['size']['height'], self.config['size']['width']
         screenshot = BWImage(path)
         wb_names = Preprocessor.crop_names(screenshot.wb, size=(h, w))
         return [self.db.lookup([np.ravel(name)]) for name in wb_names]
-    
-    def buildRecord(self, beginSnapshot, endSnapshot, params):
-        """
-        mock-up the YY chatboard record list that can be immediately read by attendance record.
-        this solution is to avoid massive rewrite of the checker logic
-        """
-        beginNames = self.readSnapshot(beginSnapshot)
-        endNames = self.readSnapshot(endSnapshot)
 
     def onCheckAttendance(self, options):
         try:

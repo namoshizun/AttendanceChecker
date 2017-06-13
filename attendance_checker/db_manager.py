@@ -26,7 +26,8 @@ class Database:
 
 		# training
 		# self.classifier = svm.SVC(gamma=0.001).fit(images, labels)
-		self.classifier = linear_model.LinearRegression().fit(images, labels)
+		# self.classifier = linear_model.LinearRegression().fit(images, labels)
+		self.classifier = linear_model.LogisticRegression().fit(images, labels)
 
 		# saving
 		if save_model:
