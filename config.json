@@ -3,6 +3,6 @@
 		"width": 180,
 		"height": 12
 	},
-	"db_path": "./database/",
+	"lookup_path": "./assets/lookuptable01.csv",
 	"classifier_path": "./assets/logistic_classifier.pkl"
 }

@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 from functools import reduce
 
-DEFAULT_ENC = sys.getdefaultencoding()
 MAX_TIME = datetime.now() + timedelta(9999)
 
 class UserParams:
@@ -21,28 +20,6 @@ class CheckerUtil:
         self.params = params
         self.parser = RecordsParser()
 
-    def checkEncoding(ioFn):
-        encodings = ['utf-8', 'utf-16', 'gb18030', 'gb2312', 'gbk']
-
-        def detectEncoding(path, idx=0):
-            try:
-                with open(path, encoding=encodings[idx]) as source:
-                    source.read()
-                return True, encodings[idx]
-            except IndexError:
-                return False, None
-            except UnicodeDecodeError:
-                return detectEncoding(path, idx+1)
-
-
-        def checker(self, path):
-            succ, encoding = detectEncoding(path)
-            if succ:
-                return ioFn(self, path, encoding)
-            else:
-                raise UnicodeDecodeError('cannot decode file ' + path)
-        return checker
-    
     def synthesise_record(self, startNames, endNames):
         """
         mock-up the YY chatboard record data that can be immediately read by attendance record.
@@ -54,17 +31,11 @@ class CheckerUtil:
             lines.append(template.format(name=name, action='进入', time=datetime.strftime(params.startTime, '%H:%M:%S')))
         
         earlyLeaves = set(startNames) - set(endNames)
-        mockLeaveTime = endTime - datetime.timedelta(minutes=15.5)
+        mockLeaveTime = endTime - timedelta(minutes=15.5)  # just a magic number saying a guy is not in the end snapshot
         for name in earlyLeaves:
             lines.append(template.format(name=name, action='退出', time=datetime.strftime(mockLeaveTime, '%H:%M:%S')))
         
-        return os.linesp.join(lines)
-
-    @checkEncoding
-    def readMemberList(self, path, encoding=DEFAULT_ENC):
-        with open(path, 'r+', encoding=encoding) as source:
-            rawList = csv.DictReader(source)
-            return [row['YY昵称'] for row in rawList if row['YY昵称']]
+        return self.parser.rawToDicts(os.linesep.join(lines))
 
     def outputAttendence(self, path, sheet):
         if not os.path.exists(path):
@@ -80,7 +51,6 @@ class CheckerUtil:
             cout.writerow(['迟到', summ['stat']['lates']])
             cout.writerow(['缺勤', summ['stat']['absent']])
             cout.writerow(['中途长期退出', summ['stat']['dropouts']])
-            cout.writerow(['未识别名单'] + list(summ['unrecognised']))
             cout.writerow(['YY昵称','出勤结果', '活动记录'])
             cout.writerows(self.parser.parseSheetToCsvRows(sheet))
         return fname
@@ -144,7 +114,6 @@ class AttendancSheet:
                 'absent': None,
             },
             'absent': None,
-            'unrecognised': set(),
             'period': [params.startTime, endTime],
         }
         self.mems = {}
@@ -167,11 +136,11 @@ class AttendancSheet:
             return
         self.mems[name]['leave'][-1] = time # polyfill
 
-    def conclude(self, memberList):
+    def conclude(self, member_sheet):
 
-        present, earlyLeaves, dropouts, lates, total = 0, 0, 0, 0, len(memberList)
+        present, earlyLeaves, dropouts, lates, total = 0, 0, 0, 0, len(member_sheet)
         start, end = self.summary['period'][0], self.summary['period'][1]
-        absence = list(set(memberList) - set(self.mems.keys()))
+        absence = list(member_sheet - set(self.mems.keys()))
 
         for mem, hist in self.mems.items():
             pairs = list(zip(hist['enter'], hist['leave']))
@@ -215,10 +184,10 @@ class AttendancSheet:
 
 
 class AttendanceChecker:
-    def __init__(self, memberList, params):
+    def __init__(self, member_sheet, params):
         self.sheet = AttendancSheet(params)
 
-        self.memberList = memberList
+        self.member_sheet = member_sheet
         self.lastCheck = None
         self.toDtm = lambda _str: datetime.strptime(str(params.startTime.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
 
@@ -226,18 +195,12 @@ class AttendanceChecker:
         def wrapper(self, newRec):
             filtered = []
             for rec in newRec:
-                dtime, name = self.toDtm(rec['time']), rec['name']
+                dtime = self.toDtm(rec['time'])
 
                 if self.lastCheck and dtime <= self.lastCheck:
                     # skip old records
                     continue
-                if name.startswith('澳'):
-                    # skip Australian mates, coz they are treated specially :D
-                    continue
-                if name not in self.memberList:
-                    # take note of unrecognised name and skip them
-                    self.sheet.summary['unrecognised'].add(name)
-                    continue
+
                 filtered.append(rec)
 
             updateFn(self, filtered)
@@ -261,4 +224,4 @@ class AttendanceChecker:
                 self.sheet.memLeave(name, dtime)
 
     def conclude(self):
-        self.sheet.conclude(self.memberList)
+        self.sheet.conclude(self.member_sheet)

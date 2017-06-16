@@ -1,23 +1,55 @@
-import pickle
-import sys, os, glob, json
+import pickle, sys, os, glob, json, csv
 import numpy as np
 from scipy.misc import imresize
 from PIL import Image
 from sklearn import svm
 from sklearn import linear_model
-from .image import BWImage
+from .util import selectEncoding
+
+MIN_CONFIDENCE = -0.3
 
 class Database:
 	def __init__(self, config):
 		self.config = config
-		self.db_path = config['db_path']
-		self.classifier_path = config['classifier_path']
+		self.lookup_table = None
 		self.classifier = None
 
-	def lookup(self, img):
-		return self.classifier.predict(img)[0]
+	def __load_classifier(self, path):
+		if os.path.exists(path):
+			with open(path, 'rb') as model:
+				self.classifier = pickle.load(model)
+	
+	@selectEncoding
+	def __load_lookup(self, path, encoding=None):
+		with open(path, 'r', encoding=encoding) as source:
+			rawList = csv.DictReader(source)
+			self.lookup_table = {
+				int(row['number']): row['name']
+				for row in rawList if row['number'] and row['name']
+			}
 
-	def study(self, images, labels, save_model=True):
+	def lookup(self, images):
+		"""
+		predict the numeral class of each image array, then return the corresponding name for 
+		certain ones and the index of uncertain ones in the original images list
+		"""
+		# get predicted numeral classes and corresponding confidence values
+		predictions = []
+		decision_vals = self.classifier.decision_function(images)
+		for val in decision_vals:
+			arg = np.argmax(val)
+			predictions.append((arg, val[arg]))
+		predictions = np.array(predictions)
+		
+		# separate certain and uncertain ones
+		undecided = np.ravel(np.argwhere(predictions[:, 1] < MIN_CONFIDENCE))
+		mask = np.ones(len(predictions), dtype=bool)
+		mask[undecided] = False
+		decided_kls = predictions[mask][:, 0]
+
+		return [self.lookup_table[i] for i in decided_kls], undecided
+
+	def study(self, images, labels, save_model=True, trainer=linear_model.LogisticRegression):
 		# shaping
 		if type(images) is not np.ndarray:
 			images = np.array(images)
@@ -25,32 +57,14 @@ class Database:
 			images = images.reshape(len(images), -1)
 
 		# training
-		# self.classifier = svm.SVC(gamma=0.001).fit(images, labels)
-		# self.classifier = linear_model.LinearRegression().fit(images, labels)
-		self.classifier = linear_model.LogisticRegression().fit(images, labels)
+		self.classifier = trainer().fit(images, labels)
 
 		# saving
 		if save_model:
-			with open(self.classifier_path, 'wb') as outfile:
+			with open(self.config['classifier_path'], 'wb') as outfile:
 				pickle.dump(self.classifier, outfile)
 
 	def load(self):
-		if os.path.exists(self.classifier_path):
-			with open(self.classifier_path, 'rb') as model:
-				self.classifier = pickle.load(model)
-
+		self.__load_lookup(self.config['lookup_path'])
+		self.__load_classifier(self.config['classifier_path'])
 		return self
-
-	def renew(self, raw, names=None):
-		size = (self.config['size']['height'], self.config['size']['width'])
-		if type(raw) is not list:
-			raw = [raw]
-
-		for i, img in enumerate(raw):
-			if img.shape != size:
-				img = imresize(img, size)
-
-			im = Image.fromarray(img).convert('RGB')
-			name = '{}.png'.format(names[i] if names else i)
-			im.save(os.path.join(self.db_path, name))
-

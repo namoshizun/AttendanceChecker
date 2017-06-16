@@ -52,4 +52,4 @@ class Preprocessor:
 			croped = name[:h, common_start: common_start+w]
 			names.append(croped if croped.shape == size else me.pad(croped, size))
 
-		return names
+		return np.array(names)

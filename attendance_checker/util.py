@@ -1,8 +1,45 @@
-import time
+import time, sys, json
 import numpy as np
 import matplotlib.pyplot as plt
 
 
+#############
+# MISC UTIL #
+#############
+def readJSON(path):
+    with open('config.json', 'r') as file:
+        return json.load(file)
+
+
+######################
+# TEXT PREPROCESSING #
+######################
+DEFAULT_ENC = sys.getdefaultencoding()
+def selectEncoding(ioFn):
+    encodings = ['utf-8', 'utf-16', 'gb18030', 'gb2312', 'gbk']
+
+    def detectEncoding(path, idx=0):
+        try:
+            with open(path, encoding=encodings[idx]) as source:
+                source.read()
+            return True, encodings[idx]
+        except IndexError:
+            return False, None
+        except UnicodeDecodeError:
+            return detectEncoding(path, idx+1)
+
+
+    def checker(self, path):
+        succ, encoding = detectEncoding(path)
+        if succ:
+            return ioFn(self, path, encoding)
+        else:
+            raise UnicodeDecodeError('cannot decode file ' + path)
+    return checker
+
+#######################
+# IMAGE PREPROCESSING #
+#######################
 def rgb2gray(rgb):
 	return np.dot(rgb[...,:3], [0.3, 0.59, 0.11])
 
