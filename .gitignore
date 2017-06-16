@@ -2,6 +2,7 @@
 考勤结果/
 临时文件/
 *.db
+未识别/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
