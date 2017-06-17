@@ -1,7 +1,7 @@
-import os, re
+import os, re, itertools
 from datetime import datetime
-from tkinter import Label, Entry, Button, StringVar
-from tkinter.filedialog import askopenfilename
+from tkinter import Label, Entry, Button, StringVar, Text, Scrollbar
+from tkinter.filedialog import askopenfilenames
 from tkinter import tix, messagebox
 
 CURR_DIR = os.getcwd()
@@ -11,6 +11,7 @@ class Application(tix.Frame):
     def __init__(self, callback, master=None):
         super().__init__(master)
         self.callback = callback
+        self.options = self.optionPayload()
         self.wigets = {}
 
         self.pack()
@@ -18,10 +19,23 @@ class Application(tix.Frame):
         self.createWidgets()
         self.positionWidgets()
 
+    def optionPayload(self):
+        return {
+            'startTime': None,
+            'classLength': None,
+            'memList': None,
+            'beginSnapshot': tuple(),
+            'endSnapshot': tuple(),
+            'savePath': os.path.join(CURR_DIR, '考勤结果/')
+        }
+    
+    def log(self, message):
+        self.widgets['logPanel'].insert(tix.END, message + os.linesep)
+
     def configWindow(self):
         self.master.title('研讨班辅助考勤')
-        self.master.maxsize(450, 300)
-        self.master.minsize(450, 300)
+        self.master.maxsize(650, 320)
+        self.master.minsize(650, 320)
 
     def buildStringVar(self, text):
         strVar = StringVar()
@@ -34,26 +48,26 @@ class Application(tix.Frame):
         # setup start checking time
         startTimeVar = self.buildStringVar(now.strftime('%Y-%m-%d %H:%M:00'))
         startTimeLabel = Label(self, text='考勤开始时间')
-        startTimeEnt = Entry(self, textvariable=startTimeVar)
+        startTimeEnt = Entry(self, textvariable=startTimeVar, width=30)
 
         # setup class length
         clsLenVar = self.buildStringVar('2h 00min')
         clsLenLabel = Label(self, text='考勤长度')
-        clsLenEnt = Entry(self, textvariable=clsLenVar)
+        clsLenEnt = Entry(self, textvariable=clsLenVar, width=30)
 
         # member list file select
         defaultSheet = os.path.join(ASSET_DIR, '考勤表.csv')
         memListVar = self.buildStringVar(defaultSheet if os.path.exists(defaultSheet) else '')
         memListLabel = Label(self, text='学员列表')
-        memListEnt = Entry(self, textvariable=memListVar)
+        memListEnt = Entry(self, textvariable=memListVar, width=30)
         memListBtn = Button(self, text='选择文件', command=self.selectMemList)
 
         # attendance snapshots
         beginVar, endVar = self.buildStringVar(''), self.buildStringVar('')
         beginLabel, endLabel = Label(self, text='首次截图'), Label(self, text='结束截图')
-        beginEnt, endEnt = Entry(self, textvariable=beginVar), Entry(self, textvariable=endVar)
-        beginBtn = Button(self, text='选择文件', command=self.selectRecFile(True))
-        endBtn = Button(self, text='选择文件', command=self.selectRecFile(False))
+        beginEnt, endEnt = Entry(self, textvariable=beginVar, width=30), Entry(self, textvariable=endVar, width=30)
+        beginBtn = Button(self, text='添加文件', command=self.selectRecFile(isBegin=True))
+        endBtn = Button(self, text='添加文件', command=self.selectRecFile(isBegin=False))
 
         # submit button
         submitBtn = Button(self,
@@ -71,56 +85,62 @@ class Application(tix.Frame):
             'beginEnt': { 'self': beginEnt, 'content': beginVar},
             'endLabel': endLabel, 'endBtn': endBtn,
             'endEnt': { 'self': endEnt, 'content': endVar},
-            'submitBtn': submitBtn
+            'submitBtn': submitBtn,
+            'logPanel': Text(self)
         }
 
     def positionWidgets(self):
         w = self.widgets # aliasing
 
-        w['startTimeLabel'].grid(row=0, column=0, sticky='W', pady=10)
-        w['startTimeEnt']['self'].grid(row=0, column=1, sticky='W', pady=10)
+        w['startTimeLabel'].grid(row=0, column=0, sticky='W', pady=2)
+        w['startTimeEnt']['self'].grid(row=0, column=1,  sticky='W', pady=2)
 
-        w['clsLenLabel'].grid(row=1, column=0, sticky='W', pady=10)
-        w['clsLenEnt']['self'].grid(row=1, column=1, sticky='W', pady=10)
+        w['clsLenLabel'].grid(row=1, column=0, sticky='W', pady=2)
+        w['clsLenEnt']['self'].grid(row=1, column=1, sticky='W', pady=2)
 
-        w['memListLabel'].grid(row=2, column=0, sticky='W', pady=10)
-        w['memListEnt']['self'].grid(row=2, column=1, sticky='W', pady=10)
-        w['memListBtn'].grid(row=2, column=2, sticky='W', pady=10, padx=10)
+        w['memListLabel'].grid(row=2, column=0, sticky='W', pady=2)
+        w['memListEnt']['self'].grid(row=2, column=1, sticky='W', pady=2)
+        w['memListBtn'].grid(row=2, column=2, sticky='W', pady=2, padx=10)
 
-        w['beginLabel'].grid(row=3, column=0, sticky='W', pady=10)
-        w['beginEnt']['self'].grid(row=3, column=1, sticky='W', pady=10)
-        w['beginBtn'].grid(row=3, column=2, sticky='W', pady=10, padx=10)
+        w['beginLabel'].grid(row=3, column=0, sticky='W', pady=2)
+        w['beginEnt']['self'].grid(row=3, column=1, sticky='W', pady=2)
+        w['beginBtn'].grid(row=3, column=2, sticky='W', pady=2, padx=10)
 
-        w['endLabel'].grid(row=4, column=0, sticky='W', pady=10)
-        w['endEnt']['self'].grid(row=4, column=1, sticky='W', pady=10)
-        w['endBtn'].grid(row=4, column=2, sticky='W', pady=10, padx=10)
+        w['endLabel'].grid(row=4, column=0, sticky='W', pady=2)
+        w['endEnt']['self'].grid(row=4, column=1, sticky='W', pady=2)
+        w['endBtn'].grid(row=4, column=2, sticky='W', pady=2, padx=10)
 
         w['submitBtn'].grid(row=5, column=1, sticky='we')
+        w['logPanel'].grid(row=0, column=3, columnspan=2, rowspan=6, sticky='nsew')
 
     def selectMemList(self):
-        filepath = askopenfilename(initialdir=CURR_DIR)
+        filepath = askopenfilenames(initialdir=CURR_DIR)
         self.widgets['memListEnt']['content'].set(filepath)
 
     def selectRecFile(self, isBegin=True):
         def handler():
-            filepath = askopenfilename(initialdir=CURR_DIR)
-            if isBegin:
-                self.widgets['beginEnt']['content'].set(filepath)
-            else:
-                self.widgets['endEnt']['content'].set(filepath)
+            # get data and affected entities
+            files = askopenfilenames(initialdir=CURR_DIR)
+            if not files: return
+
+            widgetName = 'beginEnt' if isBegin else 'endEnt'
+            optName = 'beginSnapshot' if isBegin else 'endSnapshot'
+            widgetContent = self.widgets[widgetName]['content']
+
+            # update UI and option params
+            self.options[optName] += files
+            widgetContent.set(';'.join(map(os.path.basename, self.options[optName])))
         return handler
 
     def validateOptions(submitFn):
         def validator(self):
             w = self.widgets
-            options = {
+            self.options.update({
                 'startTime': w['startTimeEnt']['self'].get(),
                 'classLength': w['clsLenEnt']['self'].get(),
-                'memList': w['memListEnt']['self'].get(),
-                'beginSnapshot': w['beginEnt']['self'].get(),
-                'endSnapshot': w['endEnt']['self'].get(),
-                'savePath': os.path.join(CURR_DIR, '考勤结果/')
-            }
+                'memList': w['memListEnt']['self'].get(),                
+            })
+            options = self.options
 
             # check start time format
             try:
@@ -140,7 +160,7 @@ class Application(tix.Frame):
             options['classLength'] = list(map(lambda val: int(val), res[0]))
 
             # check files
-            for file in [options['memList'], options['beginSnapshot'], options['endSnapshot']]:
+            for file in [options['memList']] + list(options['beginSnapshot']) + list(options['endSnapshot']):
                 if not os.path.exists(file):
                     messagebox.showwarning('请检查','文件不存在：' + file)
                     return
@@ -162,10 +182,4 @@ class Application(tix.Frame):
             'savePath': defaultSavePath
         }
         """
-        success, msg = self.callback(options)
-
-        if not success:
-            messagebox.showerror('请汇报技术人员', msg)
-        else:
-            messagebox.showinfo('考勤完毕', '考勤结果已保存至： ' + msg)
-
+        self.callback(options)

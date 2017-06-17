@@ -3,6 +3,7 @@
 临时文件/
 *.db
 未识别/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

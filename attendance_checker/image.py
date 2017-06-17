@@ -1,14 +1,11 @@
 import os
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
-from scipy.misc import imresize, imsave
-from PIL import Image
+from scipy.misc import imresize, imsave, imread
 from .util import rgb2gray, gray2wb
 
 
 class BWImage:
 	def __init__(self, source_path):
-		img = mpimg.imread(source_path)
+		img = imread(source_path)
 
 		self.wb = gray2wb(rgb2gray(img) if img.ndim > 2 else img)
 		self.source = source_path
@@ -19,6 +16,7 @@ class BWImage:
 		return os.path.splitext(base)[0]
 
 	def show(self):
+		import matplotlib.pyplot as plt
 		plt.imshow(self.wb, cmap = plt.get_cmap('gray'))
 		plt.show()
 

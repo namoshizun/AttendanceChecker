@@ -3,7 +3,7 @@ from sklearn.cluster import DBSCAN
 from collections import Counter
 from .db_manager import Database
 from .image import BWImage
-from .util import timing, first_occurrence
+from .util import first_occurrence
 
 
 class Preprocessor:

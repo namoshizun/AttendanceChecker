@@ -1,6 +1,5 @@
 import time, sys, json
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 #############
@@ -50,17 +49,8 @@ def gray2wb(gray, normalise=True):
 	return gray
 
 
-def timing(f):
-    def timmer(*args, **kwargs):
-        start = time.time()
-        ret = f(*args, **kwargs)
-        finish = time.time()
-        print('%s function took %0.3f s' % (f.__name__, (finish-start)))
-        return ret
-    return timmer
-
-
 def draw(*args):
+    import matplotlib.pyplot as plt
     for i, img in enumerate(args):
         plt.subplot(2, 1, i + 1)
         plt.imshow(img)

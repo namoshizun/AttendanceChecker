@@ -35,7 +35,7 @@ class CheckerUtil:
         for name in earlyLeaves:
             lines.append(template.format(name=name, action='退出', time=datetime.strftime(mockLeaveTime, '%H:%M:%S')))
         
-        return self.parser.rawToDicts(os.linesep.join(lines))
+        return self.parser.rawToDicts(lines)
 
     def outputAttendence(self, path, sheet):
         if not os.path.exists(path):
@@ -51,7 +51,7 @@ class CheckerUtil:
             cout.writerow(['迟到', summ['stat']['lates']])
             cout.writerow(['缺勤', summ['stat']['absent']])
             cout.writerow(['中途长期退出', summ['stat']['dropouts']])
-            cout.writerow(['YY昵称','出勤结果', '活动记录'])
+            cout.writerow(['YY昵称','出勤结果'])
             cout.writerows(self.parser.parseSheetToCsvRows(sheet))
         return fname
 
@@ -84,7 +84,7 @@ class RecordsParser:
             return ret + '全勤+' if ret == '' else ret
 
         for name, hist in sheet.mems.items():
-            fullRec = [('进' if i%2==0 else '退')+str(dte) for i, dte in enumerate(chain.from_iterable(zip_longest(hist['enter'], hist['leave']))) if dte]
+            # fullRec = [('进' if i%2==0 else '退')+str(dte) for i, dte in enumerate(chain.from_iterable(zip_longest(hist['enter'], hist['leave']))) if dte]
 
             rows.append([
                 # YY昵称
@@ -92,7 +92,7 @@ class RecordsParser:
                 # 出勤结果
                 translateAttendance(**hist['attendance']),
                 # 进出记录
-                ' '.join(fullRec)
+                # ' '.join(fullRec)
             ])
         # add absent folks separately
         list(map(lambda absentName: rows.append([absentName, '缺勤+']), sheet.summary['absent']))

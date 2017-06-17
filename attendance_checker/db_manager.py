@@ -1,7 +1,6 @@
 import pickle, sys, os, glob, json, csv
 import numpy as np
 from scipy.misc import imresize
-from PIL import Image
 from sklearn import svm
 from sklearn import linear_model
 from .util import selectEncoding
