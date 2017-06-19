@@ -1,30 +1,22 @@
 from view import Application
-from attendance_checker import UserParams, CheckerUtil, AttendanceChecker 
+from attendance_checker import UserParams, CheckerUtil, MemberSheet, AttendanceChecker
 from attendance_checker import Database, Preprocessor, BWImage
-from attendance_checker import selectEncoding, readJSON
+from attendance_checker import read_json
 from tkinter import tix
 from datetime import datetime
 from scipy.misc import imsave
-import numpy as np
 import os, json, csv, itertools,  time
 
 CURR_DIR = os.getcwd()
 
 class Controller:
     def __init__(self, mainView=None):
-        self.app = Application(callback=self.onCheckAttendance, master=mainView) if mainView else None
+        self.app = Application(callback=self.on_submit_options, master=mainView) if mainView else None
         self.member_sheet = None
-        self.config = readJSON('./config.json')
+        self.config = read_json('./config.json')
         self.db = Database(self.config).load()
         
         if self.app: self.app.log('==== 程序初始化 完毕 ====')
-
-    @selectEncoding
-    def read_member_sheet(self, path, encoding=None):
-        with open(path, 'r', encoding=encoding) as source:
-            rawList = csv.DictReader(source)
-
-            return {row['YY昵称'].strip() for row in rawList if row['YY昵称']}
 
     def save_unseen(self, folder, images):
         bucket = os.path.join('./未识别', folder)
@@ -61,31 +53,30 @@ class Controller:
 
         return names
 
-    def onCheckAttendance(self, options):
+    def on_submit_options(self, options):
         try:
             # prepare tools
-            unrecognised = set()
             params = UserParams(options)
             util = CheckerUtil(params)
             if self.member_sheet is None:
-                self.member_sheet = self.read_member_sheet(options['memList'])
+                self.member_sheet = MemberSheet(options['memList'])
             
             # build the mockup record data -- prevent massive logic rewrite to attendance checker
-            beginNames = list(itertools.chain.from_iterable(map(self.process_image, options['beginSnapshot'])))
-            endNames = list(itertools.chain.from_iterable(map(self.process_image, options['endSnapshot'])))
-            record = util.synthesise_record(beginNames, endNames)
+            begin_names = list(itertools.chain.from_iterable(map(self.process_image, options['beginSnapshot'])))
+            end_names  = list(itertools.chain.from_iterable(map(self.process_image, options['endSnapshot'])))
+            record = util.synthesise_record(begin_names, end_names)
 
             # do attendance check
-            checker = AttendanceChecker(self.member_sheet, params)
-            checker.updateSheet(record)
-            checker.conclude()
+            checker = AttendanceChecker(params)
+            checker.update_sheet(record)
+            checker.conclude(self.member_sheet)
 
-            # # output results
-            saveTo = util.outputAttendence(params.savePath, checker.sheet)
+            # output results
+            self.member_sheet.refresh()
 
             if self.app:
                 self.app.log('------ 完成 ------')
-                self.app.log('√ 考勤结果已保存到: {}'.format(os.path.join(CURR_DIR, '考勤结果/' + saveTo)))
+                self.app.log('√ 考勤初表已更新')
 
         except Exception as e:
             if self.app:
@@ -100,12 +91,12 @@ def test():
     options = {
         'startTime': datetime(2017, 4, 2, 20, 30, 00),
         'classLength': [2, 0],
-        'memList': 'C:\\Users\\s400\\Desktop\\AttendanceChecker\\assets\\考勤表.csv',
-        'beginSnapshot': ('C:\\Users\\s400\\Desktop\\AttendanceChecker\\dev\\training.png',),
+        'memList': 'C:\\Users\\s400\\Desktop\\AttendanceChecker\\assets\\考勤初表.xlsx',
+        'beginSnapshot': ('C:\\Users\\s400\\Desktop\\AttendanceChecker\\dev\\test3.png',),
         'endSnapshot': ('C:\\Users\\s400\\Desktop\\AttendanceChecker\\dev\\test1.png',),
         'savePath': 'C:\\Users\\s400\\Desktop\\AttendanceChecker\\考勤结果\\'
     }
-    return controller.onCheckAttendance(options)
+    return controller.on_submit_options(options)
 
 if __name__ == '__main__':
     # test()

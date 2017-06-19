@@ -11,16 +11,17 @@ class Application(tix.Frame):
     def __init__(self, callback, master=None):
         super().__init__(master)
         self.callback = callback
-        self.options = self.optionPayload()
+        self.options = {}
         self.wigets = {}
 
+        self.reset_options()
         self.pack()
-        self.configWindow()
-        self.createWidgets()
-        self.positionWidgets()
+        self.config_window()
+        self.create_widgets()
+        self.position_widgets()
 
-    def optionPayload(self):
-        return {
+    def reset_options(self):
+        self.options = {
             'startTime': None,
             'classLength': None,
             'memList': None,
@@ -32,42 +33,42 @@ class Application(tix.Frame):
     def log(self, message):
         self.widgets['logPanel'].insert(tix.END, message + os.linesep)
 
-    def configWindow(self):
+    def config_window(self):
         self.master.title('研讨班辅助考勤')
         self.master.maxsize(650, 320)
         self.master.minsize(650, 320)
 
-    def buildStringVar(self, text):
+    def build_string_var(self, text):
         strVar = StringVar()
         strVar.set(text)
         return strVar
 
-    def createWidgets(self):
+    def create_widgets(self):
         now = datetime.now()
 
         # setup start checking time
-        startTimeVar = self.buildStringVar(now.strftime('%Y-%m-%d %H:%M:00'))
+        startTimeVar = self.build_string_var(now.strftime('%Y-%m-%d %H:%M:00'))
         startTimeLabel = Label(self, text='考勤开始时间')
         startTimeEnt = Entry(self, textvariable=startTimeVar, width=30)
 
         # setup class length
-        clsLenVar = self.buildStringVar('2h 00min')
+        clsLenVar = self.build_string_var('2h 00min')
         clsLenLabel = Label(self, text='考勤长度')
         clsLenEnt = Entry(self, textvariable=clsLenVar, width=30)
 
         # member list file select
-        defaultSheet = os.path.join(ASSET_DIR, '考勤表.csv')
-        memListVar = self.buildStringVar(defaultSheet if os.path.exists(defaultSheet) else '')
+        defaultSheet = os.path.join(ASSET_DIR, '考勤初表.xlsx')
+        memListVar = self.build_string_var(defaultSheet if os.path.exists(defaultSheet) else '')
         memListLabel = Label(self, text='学员列表')
         memListEnt = Entry(self, textvariable=memListVar, width=30)
-        memListBtn = Button(self, text='选择文件', command=self.selectMemList)
+        memListBtn = Button(self, text='选择文件', command=self.select_mem_list)
 
         # attendance snapshots
-        beginVar, endVar = self.buildStringVar(''), self.buildStringVar('')
+        beginVar, endVar = self.build_string_var(''), self.build_string_var('')
         beginLabel, endLabel = Label(self, text='首次截图'), Label(self, text='结束截图')
         beginEnt, endEnt = Entry(self, textvariable=beginVar, width=30), Entry(self, textvariable=endVar, width=30)
-        beginBtn = Button(self, text='添加文件', command=self.selectRecFile(isBegin=True))
-        endBtn = Button(self, text='添加文件', command=self.selectRecFile(isBegin=False))
+        beginBtn = Button(self, text='添加文件', command=self.select_rec_file(isBegin=True))
+        endBtn = Button(self, text='添加文件', command=self.select_rec_file(isBegin=False))
 
         # submit button
         submitBtn = Button(self,
@@ -89,7 +90,7 @@ class Application(tix.Frame):
             'logPanel': Text(self)
         }
 
-    def positionWidgets(self):
+    def position_widgets(self):
         w = self.widgets # aliasing
 
         w['startTimeLabel'].grid(row=0, column=0, sticky='W', pady=2)
@@ -113,11 +114,11 @@ class Application(tix.Frame):
         w['submitBtn'].grid(row=5, column=1, sticky='we')
         w['logPanel'].grid(row=0, column=3, columnspan=2, rowspan=6, sticky='nsew')
 
-    def selectMemList(self):
+    def select_mem_list(self):
         filepath = askopenfilenames(initialdir=CURR_DIR)
         self.widgets['memListEnt']['content'].set(filepath)
 
-    def selectRecFile(self, isBegin=True):
+    def select_rec_file(self, isBegin=True):
         def handler():
             # get data and affected entities
             files = askopenfilenames(initialdir=CURR_DIR)
@@ -132,7 +133,7 @@ class Application(tix.Frame):
             widgetContent.set(';'.join(map(os.path.basename, self.options[optName])))
         return handler
 
-    def validateOptions(submitFn):
+    def validate_options(submitFn):
         def validator(self):
             w = self.widgets
             self.options.update({
@@ -166,10 +167,13 @@ class Application(tix.Frame):
                     return
 
             submitFn(self, options)
+            
+            # reset
+            self.reset_options()
         return validator
 
 
-    @validateOptions
+    @validate_options
     def submitConfig(self, options):
         """
         expect options:

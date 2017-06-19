@@ -3,7 +3,7 @@ import numpy as np
 from scipy.misc import imresize
 from sklearn import svm
 from sklearn import linear_model
-from .util import selectEncoding
+from .util import select_encoding
 
 MIN_CONFIDENCE = -0.3
 
@@ -18,7 +18,7 @@ class Database:
 			with open(path, 'rb') as model:
 				self.classifier = pickle.load(model)
 	
-	@selectEncoding
+	@select_encoding
 	def __load_lookup(self, path, encoding=None):
 		with open(path, 'r', encoding=encoding) as source:
 			rawList = csv.DictReader(source)
