@@ -30,6 +30,10 @@ class Application(tix.Frame):
             'savePath': os.path.join(CURR_DIR, '考勤结果/')
         }
     
+    def reset_ui(self):
+        self.widgets['beginEnt']['content'].set('')
+        self.widgets['endEnt']['content'].set('')
+    
     def log(self, message):
         self.widgets['logPanel'].insert(tix.END, message + os.linesep)
 
@@ -170,6 +174,7 @@ class Application(tix.Frame):
             
             # reset
             self.reset_options()
+            self.reset_ui()
         return validator
 
 

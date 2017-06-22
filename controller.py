@@ -44,7 +44,8 @@ class Controller:
 
         # query datbase and save unseen ones
         names, idx_unseen = self.db.lookup(name_images.reshape(-1, h * w))
-        self.save_unseen(screenshot.name, name_images[idx_unseen])
+        if idx_unseen.any():
+            self.save_unseen(screenshot.name, name_images[idx_unseen])
 
         if self.app:
             finish = time.time()

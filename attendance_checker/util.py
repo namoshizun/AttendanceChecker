@@ -74,13 +74,15 @@ def select_encoding(ioFn):
 # IMAGE PREPROCESSING #
 #######################
 def rgb2gray(rgb):
-	return np.dot(rgb[...,:3], [0.3, 0.59, 0.11])
+    return np.dot(rgb[...,:3], [0.3, 0.59, 0.11])
 
 
 def gray2wb(gray, normalise=True):
-	bools = gray != 0.0
-	gray[bools] = 255 if not normalise else 1.0
-	return gray
+    bools = gray >= 25.
+    gray[bools] = 255 if not normalise else 1.0
+    gray[np.invert(bools)] = 0.0
+    
+    return gray
 
 
 def draw(*args):

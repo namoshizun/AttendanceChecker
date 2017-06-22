@@ -1,5 +1,5 @@
 import re, json, sys, itertools
-import os, csv, codecs
+import os, csv
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 from functools import reduce
@@ -47,18 +47,22 @@ class CheckerUtil:
         lateEnterTIme = startTime + (THRESHOLD + timedelta(minutes=1))
         template = '通知： [{name}] {action} [法义辅导] 频道。({time})'
 
+
         # partition into lates, eariers and normal
         earlyLeaves = startNames.difference(endNames)
         lateEnters = endNames.difference(startNames)
-        normal = startNames.intersection(endNames)
 
-        # make lines accordingly
-        list(map(lambda name: lines.append(template.format(name=name, action='进入', time=datetime.strftime(startTime, '%H:%M:%S'))), normal))
+        print('early leaves: {}'.format(earlyLeaves))
+        print('late enters: {}'.format(lateEnters))
+
+        # make lines accordingly --- order matters a lot !!!
+        list(map(lambda name: lines.append(template.format(name=name, action='进入', time=datetime.strftime(startTime, '%H:%M:%S'))), startNames))
         list(map(lambda name: lines.append(template.format(name=name, action='进入', time=datetime.strftime(lateEnterTIme, '%H:%M:%S'))), lateEnters))
         list(map(lambda name: lines.append(template.format(name=name, action='退出', time=datetime.strftime(earlyLeaveTime, '%H:%M:%S'))), earlyLeaves))
+        list(map(lambda name: lines.append(template.format(name=name, action='退出', time=datetime.strftime(endTime, '%H:%M:%S'))), endNames))
         
-        with open('./tmp.txt', 'w+') as tmp:
-            tmp.writelines(lines)
+        # with open('./tmp.txt', 'w+') as tmp:
+        #     tmp.write(os.linesep.join(lines))
         return self.__lines_to_dict(lines)
 
 
@@ -79,14 +83,13 @@ class MemberSheet:
                 if earlyLeave or late:
                     df.loc[name, 2] = '早退' if earlyLeave else '迟到'
                 else:
-                    df.loc[name, 3] = '全勤'
+                    df.loc[name, 3] = '出勤'
 
         for name, stats in sheet.mems.items():
             mark(name, **stats['attendance'])
     
     def refresh(self, backup=False):
-        # if backup:
-        #     os.rename(self.source, 'backup')
+        # pass
         os.remove(self.source)
         save_workbook(self)
 
@@ -133,12 +136,12 @@ class AttendancSheet:
             pairs = list(zip(hist['enter'], hist['leave']))
 
             # first enter - start > treshold
-            if pairs[0][0] > start and (pairs[0][0] - start) > THRESHOLD:
+            if pairs[0][0] > start and (pairs[0][0] - start) >= THRESHOLD:
                 self.mems[mem]['attendance']['late'] = True
                 lates += 1
 
             # end - last leave > treshold
-            if end > pairs[-1][1] and (end - pairs[-1][1]).seconds > THRESHOLD:
+            if end > pairs[-1][1] and (end - pairs[-1][1]) >= THRESHOLD:
                 self.mems[mem]['attendance']['earlyLeave'] = True
                 earlyLeaves += 1
 

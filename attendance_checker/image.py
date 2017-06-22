@@ -17,7 +17,7 @@ class BWImage:
 
 	def show(self):
 		import matplotlib.pyplot as plt
-		plt.imshow(self.wb, cmap = plt.get_cmap('gray'))
+		plt.imshow(self.wb)
 		plt.show()
 
 	def resize(self, size):

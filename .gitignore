@@ -4,6 +4,7 @@
 *.db
 未识别/
 .vscode/
+dev/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
