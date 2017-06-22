@@ -1,7 +1,7 @@
 import time, sys, json
 import numpy as np
-import openpyxl as pyxl
 import pandas as pd
+import openpyxl as pyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 #############
@@ -85,12 +85,12 @@ def gray2wb(gray, normalise=True):
     return gray
 
 
-def draw(*args):
-    import matplotlib.pyplot as plt
-    for i, img in enumerate(args):
-        plt.subplot(2, 1, i + 1)
-        plt.imshow(img)
-    plt.show()
+# def draw(*args):
+#     import matplotlib.pyplot as plt
+#     for i, img in enumerate(args):
+#         plt.subplot(2, 1, i + 1)
+#         plt.imshow(img)
+#     plt.show()
 
 
 def first_occurrence(arr, val):

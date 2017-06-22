@@ -15,10 +15,10 @@ class BWImage:
 		base = os.path.basename(fpath)
 		return os.path.splitext(base)[0]
 
-	def show(self):
-		import matplotlib.pyplot as plt
-		plt.imshow(self.wb)
-		plt.show()
+	# def show(self):
+	# 	import matplotlib.pyplot as plt
+	# 	plt.imshow(self.wb)
+	# 	plt.show()
 
 	def resize(self, size):
 		self.wb = imresize(self.wb, size)
