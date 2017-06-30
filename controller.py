@@ -5,7 +5,8 @@ from attendance_checker import read_json
 from tkinter import tix
 from datetime import datetime
 from scipy.misc import imsave
-import os, json, csv, itertools,  time
+from itertools import chain
+import os, json, csv, time
 
 CURR_DIR = os.getcwd()
 
@@ -19,14 +20,15 @@ class Controller:
         if self.app: self.app.log('==== 程序初始化 完毕 ====')
 
     def save_unseen(self, folder, images):
-        bucket = os.path.join('./未识别', folder)
+        bucket = os.path.join('./待校验', folder)
         if not os.path.exists(bucket):
             os.makedirs(bucket)
         
+        n_already_unseen = len(next(os.walk('./待校验'))[2])
         for i, img in enumerate(images):
-            imsave(os.path.join(bucket, '{}.png'.format(i)), img)
+            imsave(os.path.join(bucket, '{}.png'.format(n_already_unseen + i + 1)), img)
     
-    def process_image(self, path):
+    def process_image(self, path, is_begin):
         """
         1. load the image at specified path
         2. crop out name segments
@@ -45,11 +47,11 @@ class Controller:
         # query datbase and save unseen ones
         names, idx_unseen = self.db.lookup(name_images.reshape(-1, h * w))
         if idx_unseen.any():
-            self.save_unseen(screenshot.name, name_images[idx_unseen])
+            self.save_unseen('进入' if is_begin else '退出', name_images[idx_unseen])
 
         if self.app:
             finish = time.time()
-            self.app.log('完毕. 有{}张未识别图片已保存到未识别文件夹'.format(len(idx_unseen)))
+            self.app.log('完毕. 有{}张图片已保存到待校验文件夹'.format(len(idx_unseen)))
             self.app.log('用时{}秒'.format('%0.3f' % (finish-start)))
 
         return names
@@ -63,14 +65,14 @@ class Controller:
                 self.member_sheet = MemberSheet(options['memList'])
             
             # build the mockup record data -- prevent massive logic rewrite to attendance checker
-            begin_names = list(itertools.chain.from_iterable(map(self.process_image, options['beginSnapshot'])))
-            end_names  = list(itertools.chain.from_iterable(map(self.process_image, options['endSnapshot'])))
+            begin_names = list(chain.from_iterable(map(lambda path: self.process_image(path, is_begin=True), options['beginSnapshot'])))
+            end_names  = list(chain.from_iterable(map(lambda path: self.process_image(path, is_begin=False), options['endSnapshot'])))
             record = util.synthesise_record(begin_names, end_names)
 
             # do attendance check
             checker = AttendanceChecker(params)
             checker.update_sheet(record)
-            checker.conclude(self.member_sheet)
+            not_marked = checker.conclude(self.member_sheet)
 
             # output results
             self.member_sheet.refresh()
@@ -78,6 +80,9 @@ class Controller:
             if self.app:
                 self.app.log('------ 完成 ------')
                 self.app.log('√ 考勤初表已更新')
+                self.app.log('注： 以下名字未能在考勤初表找到对应条目: ')
+                self.app.log(os.linesep.join(not_marked))
+                self.app.log('------ 完成 ------')
 
         except Exception as e:
             if self.app:

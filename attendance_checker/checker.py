@@ -77,16 +77,22 @@ class MemberSheet:
 
     def from_attendance_sheet(self, sheet):
         def mark(name, earlyLeave=False, late=False):
+            marked = False
             for region, df in self.data.items():
                 if name not in df.index:
                     continue
                 if earlyLeave or late:
-                    df.loc[name, 2] = '早退' if earlyLeave else '迟到'
+                    # df.loc[name, 2] = '早退' if earlyLeave else '迟到'
+                    df.loc[name, 2] = 0
                 else:
-                    df.loc[name, 3] = '出勤'
-
-        for name, stats in sheet.mems.items():
-            mark(name, **stats['attendance'])
+                    # df.loc[name, 3] = '出勤'
+                    df.loc[name, 3] = 1
+                marked = True
+            
+            return None if marked else name
+        
+        not_marked = [mark(name, **stats['attendance']) for name, stats in sheet.mems.items()]
+        return list(filter(bool, not_marked))
     
     def refresh(self, backup=False):
         # pass
@@ -176,4 +182,5 @@ class AttendanceChecker:
 
     def conclude(self, member_sheet):
         self.sheet.conclude(member_sheet.members)
-        member_sheet.from_attendance_sheet(self.sheet)
+        not_marked = member_sheet.from_attendance_sheet(self.sheet)
+        return not_marked

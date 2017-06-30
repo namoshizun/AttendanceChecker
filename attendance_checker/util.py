@@ -19,21 +19,25 @@ def load_workbook(path):
             curr = sheet_names[sheet_idx]
         except IndexError:
             return {}
-
+        # construct dataframe from worksheet (only gets member's number, actual name and nickname)
         ws = wb.get_sheet_by_name(curr)
-
-        df = pd.DataFrame(ws.values).iloc[:, :3]  # only gets member's number, actual name and nickname
+        df = pd.DataFrame(ws.values).iloc[:, :3]
+        # clean data
         df.dropna(inplace=True)
+        df[2] = df[2].apply(str.strip)
+        # use YY names as index
         df.set_index(2, inplace=True)
+        # placeholders for makring attendance
         polyfill = [''] * len(df)
-        df[2], df[3] = polyfill, polyfill  # placeholders for makring attendance
-
+        df[2], df[3] = polyfill, polyfill
+        # recursively build from sheets
         data = {curr: df}
         data.update(loader(wb, sheet_idx + 1))
         return data
     
     wb = pyxl.load_workbook(path)
     return loader(wb)
+
 
 def save_workbook(member_sheet):
     wb = pyxl.Workbook(write_only=True)
@@ -85,12 +89,12 @@ def gray2wb(gray, normalise=True):
     return gray
 
 
-# def draw(*args):
-#     import matplotlib.pyplot as plt
-#     for i, img in enumerate(args):
-#         plt.subplot(2, 1, i + 1)
-#         plt.imshow(img)
-#     plt.show()
+def draw(*args):
+    import matplotlib.pyplot as plt
+    for i, img in enumerate(args):
+        plt.subplot(2, 1, i + 1)
+        plt.imshow(img)
+    plt.show()
 
 
 def first_occurrence(arr, val):
