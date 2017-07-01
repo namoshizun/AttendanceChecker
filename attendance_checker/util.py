@@ -28,8 +28,8 @@ def load_workbook(path):
         # use YY names as index
         df.set_index(2, inplace=True)
         # placeholders for makring attendance
-        polyfill = [''] * len(df)
-        df[2], df[3] = polyfill, polyfill
+        polyfill = [0] * len(df)
+        df[2], df[3], df[4] = polyfill, polyfill, polyfill
         # recursively build from sheets
         data = {curr: df}
         data.update(loader(wb, sheet_idx + 1))
@@ -44,7 +44,7 @@ def save_workbook(member_sheet):
     for region, df in member_sheet.data.items():
         ws = wb.create_sheet(region)
         for row in list(dataframe_to_rows(df))[1:]:
-            ws.append([row[1], row[2], row[0], row[3], row[4]])  # revert back to original order
+            ws.append([row[1], row[2], row[0], row[3], row[4], row[5]])  # revert back to original order
     wb.save(member_sheet.source)
 
 

@@ -81,17 +81,16 @@ class MemberSheet:
             for region, df in self.data.items():
                 if name not in df.index:
                     continue
-                if earlyLeave or late:
-                    # df.loc[name, 2] = '早退' if earlyLeave else '迟到'
-                    df.loc[name, 2] = 0
-                else:
-                    # df.loc[name, 3] = '出勤'
-                    df.loc[name, 3] = 1
+                
+                df.loc[name, 2] = int(not earlyLeave)
+                df.loc[name, 3] = int(not late)
+                df.loc[name, 4] = int(not earlyLeave and not late)
                 marked = True
             
             return None if marked else name
         
         not_marked = [mark(name, **stats['attendance']) for name, stats in sheet.mems.items()]
+        
         return list(filter(bool, not_marked))
     
     def refresh(self, backup=False):
