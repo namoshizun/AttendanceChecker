@@ -38,8 +38,8 @@ class Application(tix.Frame):
 
     def config_window(self):
         self.master.title('研讨班辅助考勤')
-        self.master.maxsize(650, 320)
-        self.master.minsize(650, 320)
+        self.master.maxsize(650, 300)
+        self.master.minsize(650, 300)
 
     def build_string_var(self, text):
         strVar = StringVar()
@@ -65,8 +65,8 @@ class Application(tix.Frame):
         beginVar, endVar = self.build_string_var(''), self.build_string_var('')
         beginLabel, endLabel = Label(self, text='首次截图'), Label(self, text='结束截图')
         beginEnt, endEnt = Entry(self, textvariable=beginVar, width=30), Entry(self, textvariable=endVar, width=30)
-        beginBtn = Button(self, text='添加文件', command=self.select_screenshots(isBegin=True))
-        endBtn = Button(self, text='添加文件', command=self.select_screenshots(isBegin=False))
+        beginBtn = Button(self, text='添加文件', command=self.select_screenshots(is_begin=True))
+        endBtn = Button(self, text='添加文件', command=self.select_screenshots(is_begin=False))
 
         # submit button
         submitBtn = Button(self,
@@ -76,8 +76,6 @@ class Application(tix.Frame):
         self.widgets = {
             'startTimeLabel': startTimeLabel,
             'startTimeEnt': { 'self': startTimeEnt, 'content': startTimeVar },
-            'clsLenLabel': clsLenLabel,
-            'clsLenEnt': {'self': clsLenEnt, 'content': clsLenVar },
             'memListLabel': memListLabel, 'memListBtn': memListBtn,
             'memListEnt': { 'self': memListEnt, 'content': memListVar},
             'beginLabel': beginLabel, 'beginBtn': beginBtn,
@@ -95,8 +93,8 @@ class Application(tix.Frame):
         w['startTimeEnt']['self'].grid(row=0, column=1,  sticky='W', pady=2)
 
         w['memListLabel'].grid(row=1, column=0, sticky='W', pady=2)
-        w['memListEnt']['self'].grid(row=2, column=1, sticky='W', pady=2)
-        w['memListBtn'].grid(row=2, column=2, sticky='W', pady=2, padx=10)
+        w['memListEnt']['self'].grid(row=1, column=1, sticky='W', pady=2)
+        w['memListBtn'].grid(row=1, column=2, sticky='W', pady=2, padx=10)
 
         w['beginLabel'].grid(row=2, column=0, sticky='W', pady=2)
         w['beginEnt']['self'].grid(row=2, column=1, sticky='W', pady=2)
@@ -107,7 +105,7 @@ class Application(tix.Frame):
         w['endBtn'].grid(row=3, column=2, sticky='W', pady=2, padx=10)
 
         w['submitBtn'].grid(row=4, column=1, sticky='we')
-        w['logPanel'].grid(row=4, column=3, columnspan=2, rowspan=6, sticky='nsew')
+        w['logPanel'].grid(row=0, column=3, columnspan=2, rowspan=5, sticky='nsew')
 
     def select_mem_list(self):
         filepath = askopenfilenames(initialdir=CURR_DIR)

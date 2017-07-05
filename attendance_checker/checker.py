@@ -45,7 +45,7 @@ class CheckerUtil:
         """
         startNames, endNames = set(startNames), set(endNames)
         lines, params = [], self.params
-        startTime, endTime = params.startTime, params.startTime + timedelta(minutes=params.classLength[0]*60+params.classLength[1])
+        startTime, endTime = params.startTime, params.startTime + timedelta(hours=2)
         earlyLeaveTime = endTime - (THRESHOLD + timedelta(minutes=1))
         lateEnterTIme = startTime + (THRESHOLD + timedelta(minutes=1))
         template = '通知： [{name}] {action} [法义辅导] 频道。({time})'
@@ -76,24 +76,23 @@ class MemberSheet:
         return set(itertools.chain.from_iterable([v.index.values for k, v in self.data.items()]))
 
     def from_attendance_sheet(self, sheet):
-        def mark(name, earlyLeave=False, late=False):
+        def mark(yy_name, earlyLeave=False, late=False):
             marked = False
             for region, df in self.data.items():
                 if yy_name not in df.index:
                     continue
                 
-                row = df.loc[yy_name]
-                row['截屏1'] = int(not late)
-                row['截屏2'] = int(not earlyLeave)
-                row['结果'] = int(not earlyLeave and not late)
+                df.loc[yy_name, '截屏1'] = int(not late)
+                df.loc[yy_name, '截屏2'] = int(not earlyLeave)
+                df.loc[yy_name, '结果'] = int(not earlyLeave and not late)
                 
                 if earlyLeave or late:
                     idx = len(unattended)
-                    unattended.loc[idx] = [row['姓名'], yy_name, region, '缺勤', '早退' if earlyLeave else '迟到']
+                    unattended.loc[idx] = [df.loc[yy_name, '姓名'], yy_name, region, '缺勤', '早退' if earlyLeave else '迟到']
                 
                 marked = True
             
-            return None if marked else name
+            return None if marked else yy_name
         
         unattended = pd.DataFrame(columns=['姓名', 'YY昵称', '地区', '出勤情况', '备注'])
         not_marked = [mark(name, **stats['attendance']) for name, stats in sheet.mems.items()]

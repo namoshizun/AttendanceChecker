@@ -24,7 +24,7 @@ def load_workbook(path):
         df = pd.DataFrame(ws.values).iloc[:, :3]
         # clean data
         df.dropna(inplace=True)
-        df.columns = ['编号', '姓名', 'YY昵称', '截屏1', '截屏2', '结果']
+        df.columns = ['编号', '姓名', 'YY昵称']
         df['YY昵称'] = df['YY昵称'].apply(str.strip)
         # use YY names as index
         df.set_index('YY昵称', inplace=True)
@@ -44,9 +44,7 @@ def save_workbook(member_sheet):
     wb = pyxl.Workbook(write_only=True)
     for sheet, df in member_sheet.data.items():
         ws = wb.create_sheet(sheet)
-        next(map(ws.append, list(dataframe_to_rows(df))[1:]))
-        # for row in list(dataframe_to_rows(df))[1:]:
-        #     ws.append([row[1], row[2], row[0], row[3], row[4], row[5]])  # revert back to original order
+        list(map(ws.append, list(dataframe_to_rows(df))[1:]))
     wb.save(member_sheet.source)
 
 
