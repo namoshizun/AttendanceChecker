@@ -24,12 +24,13 @@ def load_workbook(path):
         df = pd.DataFrame(ws.values).iloc[:, :3]
         # clean data
         df.dropna(inplace=True)
-        df[2] = df[2].apply(str.strip)
+        df.columns = ['编号', '姓名', 'YY昵称', '截屏1', '截屏2', '结果']
+        df['YY昵称'] = df['YY昵称'].apply(str.strip)
         # use YY names as index
-        df.set_index(2, inplace=True)
+        df.set_index('YY昵称', inplace=True)
         # placeholders for makring attendance
         polyfill = [0] * len(df)
-        df[2], df[3], df[4] = polyfill, polyfill, polyfill
+        df['截屏1'], df['截屏2'], df['结果'] = polyfill, polyfill, polyfill
         # recursively build from sheets
         data = {curr: df}
         data.update(loader(wb, sheet_idx + 1))
@@ -41,10 +42,11 @@ def load_workbook(path):
 
 def save_workbook(member_sheet):
     wb = pyxl.Workbook(write_only=True)
-    for region, df in member_sheet.data.items():
-        ws = wb.create_sheet(region)
-        for row in list(dataframe_to_rows(df))[1:]:
-            ws.append([row[1], row[2], row[0], row[3], row[4], row[5]])  # revert back to original order
+    for sheet, df in member_sheet.data.items():
+        ws = wb.create_sheet(sheet)
+        next(map(ws.append, list(dataframe_to_rows(df))[1:]))
+        # for row in list(dataframe_to_rows(df))[1:]:
+        #     ws.append([row[1], row[2], row[0], row[3], row[4], row[5]])  # revert back to original order
     wb.save(member_sheet.source)
 
 

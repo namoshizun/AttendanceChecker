@@ -1,12 +1,15 @@
 import re, json, sys, itertools
 import os, csv
+import pandas as pd
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 from functools import reduce
 from .util import load_workbook, save_workbook
 
+
 MAX_TIME = datetime.now() + timedelta(9999)
 THRESHOLD = timedelta(minutes=15)
+
 
 class UserParams:
     def __init__(self, options):
@@ -47,8 +50,7 @@ class CheckerUtil:
         lateEnterTIme = startTime + (THRESHOLD + timedelta(minutes=1))
         template = '通知： [{name}] {action} [法义辅导] 频道。({time})'
 
-
-        # partition into lates, eariers and normal
+        # partition into lates and early leaves
         earlyLeaves = startNames.difference(endNames)
         lateEnters = endNames.difference(startNames)
 
@@ -61,8 +63,6 @@ class CheckerUtil:
         list(map(lambda name: lines.append(template.format(name=name, action='退出', time=datetime.strftime(earlyLeaveTime, '%H:%M:%S'))), earlyLeaves))
         list(map(lambda name: lines.append(template.format(name=name, action='退出', time=datetime.strftime(endTime, '%H:%M:%S'))), endNames))
         
-        # with open('./tmp.txt', 'w+') as tmp:
-        #     tmp.write(os.linesep.join(lines))
         return self.__lines_to_dict(lines)
 
 
@@ -79,17 +79,25 @@ class MemberSheet:
         def mark(name, earlyLeave=False, late=False):
             marked = False
             for region, df in self.data.items():
-                if name not in df.index:
+                if yy_name not in df.index:
                     continue
                 
-                df.loc[name, 2] = int(not late)
-                df.loc[name, 3] = int(not earlyLeave)
-                df.loc[name, 4] = int(not earlyLeave and not late)
+                row = df.loc[yy_name]
+                row['截屏1'] = int(not late)
+                row['截屏2'] = int(not earlyLeave)
+                row['结果'] = int(not earlyLeave and not late)
+                
+                if earlyLeave or late:
+                    idx = len(unattended)
+                    unattended.loc[idx] = [row['姓名'], yy_name, region, '缺勤', '早退' if earlyLeave else '迟到']
+                
                 marked = True
             
             return None if marked else name
         
+        unattended = pd.DataFrame(columns=['姓名', 'YY昵称', '地区', '出勤情况', '备注'])
         not_marked = [mark(name, **stats['attendance']) for name, stats in sheet.mems.items()]
+        self.data['缺勤'] = unattended
         
         return list(filter(bool, not_marked))
     
@@ -100,8 +108,11 @@ class MemberSheet:
 
 
 class AttendancSheet:
+    """
+    Note: many functions are inherited from legacy system
+    """
     def __init__(self, params):
-        endTime = params.startTime + timedelta(minutes=params.classLength[0]*60+params.classLength[1])
+        endTime = params.startTime + timedelta(hours=2)
         self.summary = {
             'stat': {
                 'present': None,
@@ -162,7 +173,6 @@ class AttendancSheet:
 class AttendanceChecker:
     def __init__(self, params):
         self.sheet = AttendancSheet(params)
-        self.lastCheck = None
         self.to_datetime = lambda _str: datetime.strptime(str(params.startTime.date()) + '-' + _str, '%Y-%m-%d-%H:%M:%S')
 
     def update_sheet(self, newRec):

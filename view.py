@@ -23,7 +23,6 @@ class Application(tix.Frame):
     def reset_options(self):
         self.options = {
             'startTime': None,
-            'classLength': None,
             'memList': None,
             'beginSnapshot': tuple(),
             'endSnapshot': tuple(),
@@ -55,11 +54,6 @@ class Application(tix.Frame):
         startTimeLabel = Label(self, text='考勤开始时间')
         startTimeEnt = Entry(self, textvariable=startTimeVar, width=30)
 
-        # setup class length
-        clsLenVar = self.build_string_var('2h 00min')
-        clsLenLabel = Label(self, text='考勤长度')
-        clsLenEnt = Entry(self, textvariable=clsLenVar, width=30)
-
         # member list file select
         defaultSheet = os.path.join(ASSET_DIR, '考勤初表.xlsx')
         memListVar = self.build_string_var(defaultSheet if os.path.exists(defaultSheet) else '')
@@ -71,8 +65,8 @@ class Application(tix.Frame):
         beginVar, endVar = self.build_string_var(''), self.build_string_var('')
         beginLabel, endLabel = Label(self, text='首次截图'), Label(self, text='结束截图')
         beginEnt, endEnt = Entry(self, textvariable=beginVar, width=30), Entry(self, textvariable=endVar, width=30)
-        beginBtn = Button(self, text='添加文件', command=self.select_rec_file(isBegin=True))
-        endBtn = Button(self, text='添加文件', command=self.select_rec_file(isBegin=False))
+        beginBtn = Button(self, text='添加文件', command=self.select_screenshots(isBegin=True))
+        endBtn = Button(self, text='添加文件', command=self.select_screenshots(isBegin=False))
 
         # submit button
         submitBtn = Button(self,
@@ -100,36 +94,33 @@ class Application(tix.Frame):
         w['startTimeLabel'].grid(row=0, column=0, sticky='W', pady=2)
         w['startTimeEnt']['self'].grid(row=0, column=1,  sticky='W', pady=2)
 
-        w['clsLenLabel'].grid(row=1, column=0, sticky='W', pady=2)
-        w['clsLenEnt']['self'].grid(row=1, column=1, sticky='W', pady=2)
-
-        w['memListLabel'].grid(row=2, column=0, sticky='W', pady=2)
+        w['memListLabel'].grid(row=1, column=0, sticky='W', pady=2)
         w['memListEnt']['self'].grid(row=2, column=1, sticky='W', pady=2)
         w['memListBtn'].grid(row=2, column=2, sticky='W', pady=2, padx=10)
 
-        w['beginLabel'].grid(row=3, column=0, sticky='W', pady=2)
-        w['beginEnt']['self'].grid(row=3, column=1, sticky='W', pady=2)
-        w['beginBtn'].grid(row=3, column=2, sticky='W', pady=2, padx=10)
+        w['beginLabel'].grid(row=2, column=0, sticky='W', pady=2)
+        w['beginEnt']['self'].grid(row=2, column=1, sticky='W', pady=2)
+        w['beginBtn'].grid(row=2, column=2, sticky='W', pady=2, padx=10)
 
-        w['endLabel'].grid(row=4, column=0, sticky='W', pady=2)
-        w['endEnt']['self'].grid(row=4, column=1, sticky='W', pady=2)
-        w['endBtn'].grid(row=4, column=2, sticky='W', pady=2, padx=10)
+        w['endLabel'].grid(row=3, column=0, sticky='W', pady=2)
+        w['endEnt']['self'].grid(row=3, column=1, sticky='W', pady=2)
+        w['endBtn'].grid(row=3, column=2, sticky='W', pady=2, padx=10)
 
-        w['submitBtn'].grid(row=5, column=1, sticky='we')
-        w['logPanel'].grid(row=0, column=3, columnspan=2, rowspan=6, sticky='nsew')
+        w['submitBtn'].grid(row=4, column=1, sticky='we')
+        w['logPanel'].grid(row=4, column=3, columnspan=2, rowspan=6, sticky='nsew')
 
     def select_mem_list(self):
         filepath = askopenfilenames(initialdir=CURR_DIR)
         self.widgets['memListEnt']['content'].set(filepath)
 
-    def select_rec_file(self, isBegin=True):
+    def select_screenshots(self, is_begin=True):
         def handler():
             # get data and affected entities
             files = askopenfilenames(initialdir=CURR_DIR)
             if not files: return
 
-            widgetName = 'beginEnt' if isBegin else 'endEnt'
-            optName = 'beginSnapshot' if isBegin else 'endSnapshot'
+            widgetName = 'beginEnt' if is_begin else 'endEnt'
+            optName = 'beginSnapshot' if is_begin else 'endSnapshot'
             widgetContent = self.widgets[widgetName]['content']
 
             # update UI and option params
@@ -137,12 +128,11 @@ class Application(tix.Frame):
             widgetContent.set(';'.join(map(os.path.basename, self.options[optName])))
         return handler
 
-    def validate_options(submitFn):
-        def validator(self):
+    def validate_and_reset(submitFn):
+        def manager(self):
             w = self.widgets
             self.options.update({
                 'startTime': w['startTimeEnt']['self'].get(),
-                'classLength': w['clsLenEnt']['self'].get(),
                 'memList': w['memListEnt']['self'].get(),                
             })
             options = self.options
@@ -158,15 +148,6 @@ class Application(tix.Frame):
                 w['startTimeEnt']['content'].set(datetime.now().strftime('%Y-%m-%d %H:%M:00')) # reset start time
                 return
 
-            # check class length format              
-            regex = re.compile(r'^([0-9]+)h ([0-9]+)min$')
-            res = regex.findall(options['classLength'])
-            if not res:
-                messagebox.showwarning('请检查','考勤长度格式有误，请参考默认格式')
-                w['clsLenEnt']['content'].set('2h 30min') # reset class length
-                return
-            options['classLength'] = list(map(lambda val: int(val), res[0]))
-
             # check files
             for file in [options['memList']] + list(options['beginSnapshot']) + list(options['endSnapshot']):
                 if not os.path.exists(file):
@@ -178,16 +159,14 @@ class Application(tix.Frame):
             # reset
             self.reset_options()
             self.reset_ui()
-        return validator
+        return manager
 
-
-    @validate_options
+    @validate_and_reset
     def submitConfig(self, options):
         """
         expect options:
         {
             'startTime': datetime object,
-            'classLength': [hours, minutes],
             'memList': validPath,
             'beginSnapshot': validPath,
             'endSnapshot': validPath,

@@ -12,7 +12,7 @@ CURR_DIR = os.getcwd()
 
 class Controller:
     def __init__(self, mainView=None):
-        self.app = Application(callback=self.on_submit_options, master=mainView) if mainView else None
+        self.app = Application(callback=self.on_start_checking, master=mainView) if mainView else None
         self.member_sheet = None
         self.config = read_json('./config.json')
         self.db = Database(self.config).load()
@@ -56,7 +56,7 @@ class Controller:
 
         return names
 
-    def on_submit_options(self, options):
+    def on_start_checking(self, options):
         try:
             # prepare tools
             params = UserParams(options)
