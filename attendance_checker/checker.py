@@ -82,8 +82,8 @@ class MemberSheet:
                 if name not in df.index:
                     continue
                 
-                df.loc[name, 2] = int(not earlyLeave)
-                df.loc[name, 3] = int(not late)
+                df.loc[name, 2] = int(not late)
+                df.loc[name, 3] = int(not earlyLeave)
                 df.loc[name, 4] = int(not earlyLeave and not late)
                 marked = True
             

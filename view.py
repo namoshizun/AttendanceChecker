@@ -1,5 +1,5 @@
 import os, re, itertools
-from datetime import datetime
+from datetime import datetime, timedelta
 from tkinter import Label, Entry, Button, StringVar, Text, Scrollbar
 from tkinter.filedialog import askopenfilenames
 from tkinter import tix, messagebox
@@ -149,7 +149,10 @@ class Application(tix.Frame):
 
             # check start time format
             try:
-                options['startTime'] = datetime.strptime(options['startTime'], '%Y-%m-%d %H:%M:%S')
+                start_time = datetime.strptime(options['startTime'], '%Y-%m-%d %H:%M:%S')
+                if start_time.hour >= 22:
+                     start_time = start_time - timedelta(hours=4)  # because there is a magic error when time > 22pm.....
+                options['startTime'] = start_time
             except ValueError:
                 messagebox.showwarning('请检查','日期格式有误，请参考默认日期格式')
                 w['startTimeEnt']['content'].set(datetime.now().strftime('%Y-%m-%d %H:%M:00')) # reset start time
