@@ -93,11 +93,20 @@ class MemberSheet:
                 marked = True
             
             return None if marked else yy_name
+
+        def extract_unattended():
+            counter = 0
+            unattended = pd.DataFrame(columns=['姓名', 'YY昵称', '地区', '出勤情况', '备注'])
+            for region, df in self.data.items():
+                for yy_name, row in df.iterrows():
+                    if row['结果'] == 0:
+                        unattended.loc[counter] = [row['姓名'], yy_name, region,
+                                                   '缺勤', '早退' if row['截屏2'] == 0 else '迟到' if row['截屏1'] == 0 else '']
+                        counter += 1
+            return unattended
         
-        unattended = pd.DataFrame(columns=['姓名', 'YY昵称', '地区', '出勤情况', '备注'])
         not_marked = [mark(name, **stats['attendance']) for name, stats in sheet.mems.items()]
-        self.data['缺勤'] = unattended
-        
+        self.data['缺勤'] = extract_unattended()        
         return list(filter(bool, not_marked))
     
     def refresh(self, backup=False):
