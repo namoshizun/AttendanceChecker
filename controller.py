@@ -13,7 +13,6 @@ CURR_DIR = os.getcwd()
 class Controller:
     def __init__(self, mainView=None):
         self.app = Application(callback=self.on_start_checking, master=mainView) if mainView else None
-        self.member_sheet = None
         self.config = read_json('./config.json')
         self.db = Database(self.config).load()
         
@@ -61,8 +60,7 @@ class Controller:
             # prepare tools
             params = UserParams(options)
             util = CheckerUtil(params)
-            if self.member_sheet is None:
-                self.member_sheet = MemberSheet(options['memList'])
+            member_sheet = MemberSheet(options['memList'])
             
             # build the mockup record data -- prevent massive logic rewrite to attendance checker
             begin_names = list(chain.from_iterable(map(lambda path: self.process_image(path, is_begin=True), options['beginSnapshot'])))
@@ -72,10 +70,10 @@ class Controller:
             # do attendance check
             checker = AttendanceChecker(params)
             checker.update_sheet(record)
-            not_marked = checker.conclude(self.member_sheet)
+            not_marked = checker.conclude(member_sheet)
 
             # output results
-            self.member_sheet.refresh()
+            member_sheet.refresh()
 
             if self.app:
                 self.app.log('------ 完成 ------')

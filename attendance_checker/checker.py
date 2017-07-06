@@ -86,10 +86,6 @@ class MemberSheet:
                 df.loc[yy_name, '截屏2'] = int(not earlyLeave)
                 df.loc[yy_name, '结果'] = int(not earlyLeave and not late)
                 
-                if earlyLeave or late:
-                    idx = len(unattended)
-                    unattended.loc[idx] = [df.loc[yy_name, '姓名'], yy_name, region, '缺勤', '早退' if earlyLeave else '迟到']
-                
                 marked = True
             
             return None if marked else yy_name
@@ -100,8 +96,8 @@ class MemberSheet:
             for region, df in self.data.items():
                 for yy_name, row in df.iterrows():
                     if row['结果'] == 0:
-                        unattended.loc[counter] = [row['姓名'], yy_name, region,
-                                                   '缺勤', '早退' if row['截屏2'] == 0 else '迟到' if row['截屏1'] == 0 else '']
+                        status = '' if not row['截屏1'] and not row['截屏2'] else '早退' if not row['截屏2'] else '迟到'
+                        unattended.loc[counter] = [row['姓名'], yy_name, region, '缺勤', status]
                         counter += 1
             return unattended
         

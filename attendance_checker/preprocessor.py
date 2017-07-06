@@ -38,18 +38,19 @@ class Preprocessor:
 		# get the most common start row position of a word
 		labels = me.clustering(img)
 		words = img[np.ravel(np.argwhere(labels == -1))]
-		start_indexes_char = list(map(lambda w: first_occurrence(w, 0), words))
-		common_start = Counter(start_indexes_char).most_common()[0][0]
 
 		# get positions of continuous word blocks
 		pivots = me.get_pivots(labels)
 		words_pivots = list(filter(lambda _: all(labels[_[0]: _[1]] != 0), pivots))
 		names = []
 
-		# extract those word blocks, and 
+		# extract those word blocks
 		for p in words_pivots:
-			name = img[p[0]: p[1]]
-			croped = name[:h, common_start: common_start+w]
+			snippet = img[p[0]: p[1]]
+			start_indexes_char = list(map(lambda w: first_occurrence(w, 0), snippet))
+			common_start = Counter(start_indexes_char).most_common()[0][0]
+
+			croped = snippet[:h, common_start: common_start+w]
 			names.append(croped if croped.shape == size else me.pad(croped, size))
 
 		return np.array(names)
