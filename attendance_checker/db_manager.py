@@ -19,12 +19,18 @@ class Database:
 	
 	@select_encoding
 	def __load_lookup(self, path, encoding=None):
-		with open(path, 'r', encoding=encoding) as source:
-			rawList = csv.DictReader(source)
-			self.lookup_table = {
-				int(row['number']): row['name']
-				for row in rawList if row['number'] and row['name']
-			}
+		if os.path.exists(path):
+			with open(path, 'r', encoding=encoding) as source:
+				rawList = csv.DictReader(source)
+				self.lookup_table = {
+					int(row['number']): row['name']
+					for row in rawList if row['number'] and row['name']
+				}
+
+	def load(self):
+		self.__load_lookup(self.config['lookup_path'])
+		self.__load_classifier(self.config['classifier_path'])
+		return self
 
 	def lookup(self, images):
 		"""
@@ -62,7 +68,3 @@ class Database:
 			with open(self.config['classifier_path'], 'wb') as outfile:
 				pickle.dump(self.classifier, outfile)
 
-	def load(self):
-		self.__load_lookup(self.config['lookup_path'])
-		self.__load_classifier(self.config['classifier_path'])
-		return self

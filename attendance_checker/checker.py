@@ -41,7 +41,7 @@ class CheckerUtil:
 
     def synthesise_record(self, startNames, endNames):
         """
-        mock-up the YY chatboard record data that can be immediately read by attendance checker.
+        mock-up the YY chatboard record data that can be immediately consumed by attendance checker.
         """
         startNames, endNames = set(startNames), set(endNames)
         lines, params = [], self.params

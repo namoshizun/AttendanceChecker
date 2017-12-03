@@ -8,7 +8,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 # MISC UTIL #
 #############
 def read_json(path):
-    with open('config.json', 'r') as file:
+    with open(path, 'r') as file:
         return json.load(file)
 
 
@@ -27,7 +27,7 @@ def load_workbook(path):
         df.columns = ['编号', '姓名', 'YY昵称']
         df['YY昵称'] = df['YY昵称'].apply(str.strip)
         # use YY names as index
-        df.set_index('YY昵称', inplace=True)
+        df.set_index('YY昵称', inplace=True, drop=False)
         # placeholders for makring attendance
         polyfill = [0] * len(df)
         df['截屏1'], df['截屏2'], df['结果'] = polyfill, polyfill, polyfill
@@ -44,7 +44,7 @@ def save_workbook(member_sheet):
     wb = pyxl.Workbook(write_only=True)
     for sheet, df in member_sheet.data.items():
         ws = wb.create_sheet(sheet)
-        list(map(ws.append, list(dataframe_to_rows(df))[1:]))
+        list(map(lambda line: ws.append(line[1:]), list(dataframe_to_rows(df))[1:]))  # skip indexes
     wb.save(member_sheet.source)
 
 

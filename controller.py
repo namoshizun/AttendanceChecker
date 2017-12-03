@@ -6,17 +6,22 @@ from tkinter import tix
 from datetime import datetime
 from scipy.misc import imsave
 from itertools import chain
-import os, json, csv, time
+import os, json, csv, time, glob
 
 CURR_DIR = os.getcwd()
 
 class Controller:
     def __init__(self, mainView=None):
-        self.app = Application(callback=self.on_start_checking, master=mainView) if mainView else None
+        self.app = Application(master=mainView) if mainView else None
         self.config = read_json('./config.json')
         self.db = Database(self.config).load()
-        
-        if self.app: self.app.log('==== 程序初始化 完毕 ====')
+
+        if self.app:
+            self.app.on('do_roll_marking', self.do_roll_marking)
+            self.app.on('do_cropping', self.do_cropping)
+            self.app.on('do_training', self.do_training)
+
+        self.do_logging('==== 程序初始化 完毕 ====')
 
     def save_unseen(self, folder, images):
         bucket = os.path.join('./待校验', folder)
@@ -35,9 +40,8 @@ class Controller:
         4. save unseen images
         """
         screenshot = BWImage(path)
-        if self.app:
-            start = time.time()
-            self.app.log('> 处理图片.... {}'.format(screenshot.name))
+        start = time.time()
+        self.do_logging('> 处理图片.... {}'.format(screenshot.name))
 
         # get name segmeents
         h, w = self.config['size']['height'], self.config['size']['width']
@@ -48,14 +52,17 @@ class Controller:
         if idx_unseen.any():
             self.save_unseen('进入' if is_begin else '退出', name_images[idx_unseen])
 
-        if self.app:
-            finish = time.time()
-            self.app.log('完毕. 有{}张图片已保存到待校验文件夹'.format(len(idx_unseen)))
-            self.app.log('用时{}秒'.format('%0.3f' % (finish-start)))
+        finish = time.time()
+        self.do_logging('完毕. 有{}张图片已保存到待校验文件夹'.format(len(idx_unseen)))
+        self.do_logging('用时{}秒'.format('%0.3f' % (finish-start)))
 
         return names
 
-    def on_start_checking(self, options):
+    def do_logging(self, message):
+        if self.app:
+            self.app.log(message)
+
+    def do_roll_marking(self, options):
         try:
             # prepare tools
             params = UserParams(options)
@@ -75,35 +82,50 @@ class Controller:
             # output results
             member_sheet.refresh()
 
-            if self.app:
-                self.app.log('------ 完成 ------')
-                self.app.log('√ 考勤初表已更新')
-                self.app.log('注： 以下名字未能在考勤初表找到对应条目: ')
-                self.app.log(os.linesep.join(not_marked))
-                self.app.log('------ 完成 ------')
+            self.do_logging('------ 完成 ------')
+            self.do_logging('√ 考勤初表已更新')
+            self.do_logging('注： 以下名字未能在考勤初表找到对应条目: ')
+            self.do_logging(os.linesep.join(not_marked))
+            self.do_logging('------ 完成 ------')
 
         except Exception as e:
-            if self.app:
-                self.app.log('------ 发生错误 ------')
-                self.app.log('× 错误信息：{}'.format(str(e)))
+            self.do_logging('------ 发生错误 ------')
+            self.do_logging('× 错误信息：{}'.format(str(e)))
+    
+    def do_cropping(self, pics):
+        self.do_logging('==== 处理{}张训练图片 ===='.format(len(pics)))
+        list(map(os.remove, glob.glob('./database/*.png')))  # clear old database folder
+
+        counter = 0
+        for pic in pics:
+            screenshot = BWImage(pic)
+            h, w = self.config['size']['height'], self.config['size']['width']
+            name_crops = Preprocessor.crop_names(screenshot.wb, size=(h, w))
+            for crop in name_crops:
+                imsave('./database/{}.png'.format(counter), crop)
+                counter += 1
+
+        self.do_logging('database文件夹已更新')
+        self.do_logging('------ 完成 ------')
+
+
+    def do_training(self, lookup_path):
+        train_pics = glob.glob('./database/*.png')
+
+        self.do_logging('==== 训练{}张图片 ===='.format(len(train_pics)))
+        X, Y = [], []
+        for label, pic in enumerate(train_pics):
+            X.append(BWImage(pic).wb)
+            Y.append(label)
+        
+        self.db.study(X, Y)
+        self.do_logging('------- 完成 -------')
 
     def run(self):
         self.app.mainloop()
-
-def test():
-    controller = Controller()
-    options = {
-        'startTime': datetime(2017, 4, 2, 20, 30, 00),
-        'classLength': [2, 0],
-        'memList': 'C:\\Users\\s400\\Desktop\\AttendanceChecker\\assets\\考勤初表.xlsx',
-        'beginSnapshot': ('C:\\Users\\s400\\Desktop\\AttendanceChecker\\dev\\test3.png',),
-        'endSnapshot': ('C:\\Users\\s400\\Desktop\\AttendanceChecker\\dev\\test1.png',),
-        'savePath': 'C:\\Users\\s400\\Desktop\\AttendanceChecker\\考勤结果\\'
-    }
-    return controller.on_submit_options(options)
+    
 
 if __name__ == '__main__':
-    # test()
     mainView = tix.Tk()
     controller = Controller(mainView)
     controller.run()

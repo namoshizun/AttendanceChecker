@@ -19,9 +19,6 @@ class BWImage:
 		import matplotlib.pyplot as plt
 		plt.imshow(self.wb)
 		plt.show()
-
-	def resize(self, size):
-		self.wb = imresize(self.wb, size)
 	
-	def save(self,filename):
+	def save(self, filename):
 		imsave(filename, self.wb)
