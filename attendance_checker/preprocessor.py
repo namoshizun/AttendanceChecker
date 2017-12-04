@@ -47,10 +47,10 @@ class Preprocessor:
 		for p in words_pivots:
 			snippet = img[p[0]: p[1]]
 			start_indexes_char = list(map(lambda w: first_occurrence(w, 0), snippet))
-			common_start = Counter(start_indexes_char).most_common()[0][0]
+			start_index = min(start_indexes_char)
 
 			# add empty paddings if the cropped image is smaller than the standard size
-			croped = snippet[:h, common_start: common_start+w]
+			croped = snippet[:h, start_index: start_index+w]
 			name_imgs.append(croped if croped.shape == size else me.pad(croped, size))
 
 		return np.array(name_imgs)

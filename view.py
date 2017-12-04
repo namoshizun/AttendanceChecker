@@ -2,7 +2,6 @@ import os, re, itertools
 from datetime import datetime, timedelta
 from functools import partial
 
-from attendance_checker import read_json
 from tkinter import Label, Entry, Button, StringVar, Text, Scrollbar
 from tkinter.filedialog import askopenfilenames
 from tkinter import tix, ttk, messagebox
@@ -228,7 +227,7 @@ class Application(tix.Frame):
             messagebox.showwarning('请检查','无法找到查找表')
             return
 
-        if os.path.relpath(lookup_path) != os.path.relpath(read_json('./config.json')['lookup_path']):
+        if not lookup_path.endswith('lookuptable01.csv'):
             messagebox.showwarning('请检查', '请将查找表放在assets文件夹内，并命名为lookuptable01.csv')
             return
 
